@@ -139,6 +139,7 @@
 | 0.17 | 04/08/2020 | Mohammed Faraaz         | OpenAPI 3.0 enhancements |
 | 0.18 | 04/09/2020 | Kwangsuk Kim            | Updated CLI and Transformer enhancement |
 | 0.19 | 04/15/2020 | Mohammed Faraaz         | Generic REST client for CLI |
+| 0.20 | 03/28/2024 | Gandhi Sevagan          | Multi DB support |
 
 ## About this Manual
 
@@ -1644,6 +1645,83 @@ Typically used to check the “when” condition to validate YANG node among mul
 Multiple DB extension, populates associated namespaces with the YANG path
 Used by Translib service to get all DB's associated with the YANG path. In case of single DB, this extension shall not be used.
 Namespace yang extension shall allow override capability to allow product specific customizations 
+```Sample annotation
+get-namespace annotation sample for openconfig-optical-amplifier yang support: 
+
+Annotation YANG File:
+sonic-mgmt-common/models/yang/annotations/openconfig-optical-amplifier-annot.yang
+module openconfig-optical-amplifier-annot {
+  .....
+    deviation /oc-opt-amp:optical-amplifier/oc-opt-amp:amplifiers/oc-opt-amp:amplifier {
+      deviate add {
+        sonic-ext:key-transformer "oc_name_key_xfmr";
+        sonic-ext:get-namespace "oc_name_get_namespace_xfmr";
+      }
+    }
+  .....
+    deviation /oc-opt-amp:optical-amplifier/oc-opt-amp:amplifiers/oc-opt-amp:amplifier/oc-opt-amp:state {
+      deviate add {
+        sonic-ext:db-name "STATE_DB";
+        sonic-ext:table-name "AMPLIFIER";
+        sonic-ext:key-transformer "oc_name_key_xfmr";
+        sonic-ext:get-namespace "oc_name_get_namespace_xfmr";
+      }
+    }
+  .....
+    deviation /oc-opt-amp:optical-amplifier/oc-opt-amp:supervisory-channels/oc-opt-amp:supervisory-channel {
+      deviate add {
+        sonic-ext:key-transformer "osc_key_xfmr";
+        sonic-ext:get-namespace "oc_name_get_namespace_xfmr";
+      }
+    }
+  .....
+    deviation /oc-opt-amp:optical-amplifier/oc-opt-amp:supervisory-channels/oc-opt-amp:supervisory-channel/oc-opt-amp:state {
+      deviate add {
+        sonic-ext:db-name "STATE_DB";
+        sonic-ext:table-name "OSC";
+        sonic-ext:key-transformer "osc_key_xfmr";
+        sonic-ext:get-namespace "oc_name_get_namespace_xfmr";
+      }
+    }
+   .....
+}
+
+Annotation implementation function
+sonic-mgmt-common/translib/transformer/xfmr_oa.go
+
+func init () {
+ .....
+    XlateFuncBind("oc_name_get_namespace_xfmr", oc_name_get_namespace_xfmr)
+}
+
+var oc_name_get_namespace_xfmr GetNamespaceFunc = func(inParams XfmrParams) ([]string, error) {
+        var response []string
+        var err error
+        var ockey string
+
+        pathInfo := NewPathInfo(inParams.uri)
+
+        if strings.Contains(inParams.uri, "/amplifier") {
+                ockey = pathInfo.Var("name")
+
+        } else if strings.Contains(inParams.uri, "/supervisory-channel") {
+                ockey = pathInfo.Var("interface")
+        }
+
+        // If Key is present in the xpath add the associated namespace and return
+        if ockey != "" {
+		        //db.GetMDBNameFromEntity converts the slot number in the key to namespace
+                dbName := db.GetMDBNameFromEntity(ockey) 
+                response = append(response,  dbName)
+
+        } else {
+        // If Key is not present in the xpath return "*", 
+		// all DB's will be looked in translib
+                response = append(response,  "*")
+        }
+        return response, err
+}
+```
 ----------
 
 
