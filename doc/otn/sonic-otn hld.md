@@ -225,7 +225,13 @@ For instance, the following URLs accesses the optical amplifier instance `AMPLIF
 ```
 
 ##### 4.4.2 Add OTN CLI commands in the SONiC-utilities and auto-generated CLI commands based on Openconfig Yang models.
-TBD
+SONiC_OTN project adopts openconfig yang model, https://github.com/openconfig/public/tree/master/release/models/optical-transport, for optical network device support. Therefore, these yang models and corresponding SONiC extension annotations are added into sonic-mgmt-common for supporting OTN REST APIs.
+
+An automatic CLI generation mechanism is introduced as part of OTN project to eliminate the manual effort of writing click based CLI. 
+
+The mechanism is a SONiC compatible Docker image, based on [SONiC application extension mechanism](https://github.com/sonic-net/SONiC/tree/master/doc/sonic-application-extension). It can be built stand alone, then installed on a SONiC system at run time, as well as built into a sonic image at build time using [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage).
+
+Please see [HLD](https://github.com/sonic-otn/SONiC-OTN/blob/main/documentation/openconfig-cli-autogen-HLD.md) and [prototype](https://github.com/jjin62/sonic-openconfig-cli) for details.
 
 #### 4.4.3 Support peripheral devices PM monitoring and alarms
 TBD
