@@ -50,45 +50,45 @@ VOA|Optical Attenuator
 OTDR| Optical Time Domain Reflectometer
 
 ### 1. SONiC for optical network introduction
-In recent years, the optical transport network (OTN) for data center interconnection (DCI) has been emerged to provide high-speed, low-latency, and reliable interconnections between data centers. The OTN network has transformed to openness and disaggregation, due to the advent of digital coherent technology, the practices of software-defined networking (SDN), and the large demand of DCI networks. Modular OTN equipment with standardized northbound interfaces and data models are widely deployed in the DCI industry.
+In recent years, optical transport networks (OTNs) for data center interconnects (DCI) have been emerged to provide high-speed, low-latency, and reliable interconnects between data centers. OTNs have transformed to openness and disaggregation, due to the advent of digital coherent technology, the practices of software-defined networking (SDN), and the large demand of DCI networks. Modular OTN equipment with standardized northbound interfaces and data models are widely deployed in the DCI industry.
 
-However the network operating systems (NOSes) running on these open and disaggregated optical network device are remain proprietary NOS and vary among different OTN equipment vendors. These proprietary NOSes offer diverse performances and alarms functionalities, CLI capabilities, and security features with different release schedules, which increase the Capital expenditures (CapEx) and operating expenses (OpEx) in a large scale DCI network. 
+However the network operating systems (NOSes) running on these open and disaggregated optical network devices are still proprietary NOS and vary among different OTN equipment vendors. These proprietary NOSes offer diverse performance and alarms functionalities, CLI capabilities, and security features with different release schedules, which increase the Capital expenditures (CapEx) and operating expenses (OpEx) in a large scale DCI network. 
 
-To overcome this, SONiC for OTN project is proposed to expand SONiC to support the optical transport network. Then SONiC can be deployed to the end to end packet and optical network. It can support optical transponders and muxponders, optical line systems such as optical line protection (OLP), optical amplifiers (OA), wavelength selective switches (WSS), which can provide optical interconnections between IP switch and routers.
+To overcome this, SONiC for OTN project is proposed to expand SONiC to support optical transport networks. Thus SONiC can be deployed to the end to end packet and optical network. It can support optical transponders and muxponders, optical line systems such as optical line protection (OLP) switches, optical amplifiers (OA), wavelength selective switches (WSSes), which can provide optical interconnects between IP switches and routers.
 
 <img src="../../images/otn/sonic-otn-transponder-open-line-system.png" alt="transponder and open line system with sonic-otn" style="zoom: 35%;" />
 
 <img src="../../images/otn/sonic-otn-packet-optical-system.png" alt="packet optical and open line system with sonic-otn" style="zoom: 35%;" />
 
 ### 2. optical transport network device introduction
-The optical transport network device provides high-speed, reliable and efficient data transmission over optical fibers. For DCI, the optical transport network device is typically 1RU (Rack Unit) and 2RU chassis with multiple optical linecard, FAN, PSU and control units. All these optical linecard are pluggable and provide different functionalities.
+The optical transport network devices provides high-speed, reliable and efficient data transmission over optical fibers. For DCI, an optical transport network device is typically 1RU (Rack Unit) or 2RU chassis with multiple optical linecards, FANs, PSUs and control units. All these optical linecards are pluggable and provide different functionalities.
 
 <img src="../../images/otn/otn-device-overview.png" alt="otn device overview" style="zoom: 35%;" />
 
-Although these optical linecard provide different functionalities and diverse between different OTN device vendors, these optical linecard are composed by the same basic optical component units. These optical components offers the common optical transmission functionalities such as:
-* Transponders and Transceivers: Convert electrical signals from servers and network equipment into optical signals for transmission over fiber optics
+Although these optical linecards provide different functionalities and are diverse among different OTN device vendors, they consist of only a few basic optical component units. These optical components offer the common optical transmission functionalities such as:
+* Transponders and Transceivers: Convert electrical signals from servers and network equipment into optical signals for transmission over optical fibers.
 * Multiplexer (Mux): combine multiple optical signals of different wavelengths onto a single optical fiber for transmission.
 * Demultiplexer (Demux): separate multiple optical signals of different wavelengths from a single optical fiber.
-* Optical Line Protection (OLP): automatically switching traffic from a primary optical path to a backup path when a fault is detected.
-* Optical Amplifier (OA): amplify the optical signal to a higher power level to increase the transmission distance over optical fiber.
+* Optical Line Protection (OLP) switch: automatically switching traffic from a primary optical path to a secondary path when a fault is detected.
+* Optical Amplifier (OA): amplify an optical signal to a higher power level to increase the transmission distance over optical fibers.
 * Wavelength Selective Switch (WSS): dynamically route specific wavelengths of light to different directions.
-* Optical Supervisory Channel (OSC): channel used for transmitting management, control information alongside the payload channels.
-* Variable Optical Attenuator (VOA): attenuate optical signal power level.
-* Optical Channel Monitor (OCM): OCM is used to monitor and analyze the optical spectrum of optical signals.
-* Optical Time-Domain Reflectometer (OTDR): OTDR is used to measure the attenuation and reflection loss along the fiber.
+* Optical Supervisory Channel (OSC): channel used for transmitting management, control information alongside payload channels.
+* Variable Optical Attenuator (VOA): attenuate optical signal power level with a changable attenuation value.
+* Optical Channel Monitor (OCM): monitor and analyze the optical spectrum of optical signals.
+* Optical Time-Domain Reflectometer (OTDR): measure distributed attenuation and reflection losses along the fiber.
 
 <img src="../../images/otn/optical-linecard-and-components.png" alt="optical linecard and component" style="zoom: 35%;" />
 
-The control unit (CU) is the main control plane component of the optical transport network device. The OTN device's NOS runs on the CU, and interacts with optical linecar's autonomous systems which are MUC software or embedded operating system. A typical optical NOS architecture on CU has four layers:
-* Northbound applications layer: provides Restconf, Netconf, gNMI, CLI and SNMP interfaces
-* System applications layer: provides message handler, optical control, management network, in-service software upgrade, and configuration managers, etc.
-* Hardware Abstraction layer (HAL): provides hardware abstraction layer for optical linecard, FAN, PSU, EEPROM, etc.
+The control unit (CU) is the main control plane component of an optical transport network device. The OTN device's NOS runs on the CU, and interacts with optical linecard's autonomous systems which are either MUC software or embedded operating system. A typical optical NOS architecture on CU has four layers:
+* Northbound application layer: provides Restconf, Netconf, gNMI, CLI and SNMP interfaces
+* System application layer: provides message handler, optical control, management network, in-service software upgrade, and configuration managers, etc.
+* Hardware Abstraction layer (HAL): provides hardware abstraction layer for the optical linecard, FAN, PSU, EEPROM, etc.
 * Linux kernel layer: provides Linux kernel and network stack
   
 <img src="../../images/otn/OTN-NOS-architecture.png" alt="otn operating system architecture" style="zoom: 35%;" />
 
 ### 3. SONiC for OTN architecture
-In order to expand SONiC to support OTN, multiple OTN services and enhancements are introduced to fulfill OTN product requirements. The OTN system maximally reuses the existing SONiC architecture and features, and minimizes the impact on the existing SONiC architecture and features. 
+In order to expand SONiC to OTN, multiple OTN services and enhancements are introduced to fulfill OTN product requirements. The OTN system maximally reuses the existing SONiC architecture and features, and minimizes the impact on the existing SONiC architecture and features. 
 
 For an OTN device, user can compile the SONiC binary with the following command, and run the binary on the target OTN device.
 ```
