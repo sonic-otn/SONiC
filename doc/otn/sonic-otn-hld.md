@@ -79,7 +79,7 @@ Although these optical linecards provide different functionalities and are diver
 
 <img src="../../images/otn/optical-linecard-and-components.png" alt="optical linecard and component" style="zoom: 35%;" />
 
-The control unit (CU) is the main control plane component of an optical transport network device. The OTN device's NOS runs on the CU, and interacts with optical linecard's autonomous systems which are either MUC software or embedded operating system. A typical optical NOS architecture on CU has four layers:
+The control unit (CU) is the main control plane component of an optical transport network device. The OTN device's NOS runs on the CU, and interacts with optical linecard's autonomous systems which are either microcontroller unit (MCU) software or embedded operating system. A typical optical NOS architecture on CU has four layers:
 * Northbound application layer: provides Restconf, Netconf, gNMI, CLI and SNMP interfaces
 * System application layer: provides message handler, optical control, management network, in-service software upgrade, and configuration managers, etc.
 * Hardware Abstraction layer (HAL): provides hardware abstraction layer for the optical linecard, FAN, PSU, EEPROM, etc.
