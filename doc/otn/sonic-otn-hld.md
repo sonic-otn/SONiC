@@ -272,6 +272,8 @@ With microservice architecutre, it's more cost-effective in the long term, user 
 * Team capability  
 Developers focus on a specific microservice, they don't need to understand how other microservices work. Developers only need IP or OTN domain knowledge to develop the microservice.
 
+[//]: # (Weitang do you want to mention here that we could enable/disable and run the IP containers here along with the OTN services as an advantage)
+
 ##### 4.3.4 The OTN services introduction
 [Optical Transport Abstraction Interface (OTAI)](./OTAI-v0.0.1-specification.md) is a standard interface for managing and controlling the optical transport components.
 OTAI provides CRUD APIs for all OTN components and objects, notifications for OTN status change and data reporting. All attributes defined in OTAI are compatible with the OpenConfig model.
