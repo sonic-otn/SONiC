@@ -2,6 +2,7 @@
 
 This document complies with the [SONiC HLD Template](https://github.com/sonic-net/SONiC/blob/master/doc/guidelines/hld_template.md).
 
+The code snippets in the document are from the following prototype:
 - Here is the ongoing prototype of [OTN kvm](https://github.com/sonic-otn/sonic-buildimage/tree/202411_otn).
 - The build and run instructions for OTN kvm are described in the [README.md](https://github.com/sonic-otn/sonic-buildimage/blob/202411_otn/platform/otn-kvm/README.md).
 
@@ -103,7 +104,7 @@ This document describes the architecture and high level design for extending SON
 |WSS   | Wavelength Selective Switch |
 |DGE   | Dynamic Gain Equalization |
 |OTDR  | Optical Time Domain Reflectometer |
-|DCI   | Inter data center connection  |
+|DCI   | Data center interconnect  |
 
 
 ### 4. Overview
@@ -146,15 +147,16 @@ At a high level the following should be supported:
 
 - Bring up SONiC image for a new platform, `otn-kvm`, and DEVICE_METADATA type - `OtnOls`
 - Bring up swss/syncd containers for switch_type - `otn`
-- Able to manage OTN device configured via REST, gRPC client and CLI
+- Able to manage OTN device configured via REST, gNMI client and CLI
 - Device Management functions including:
-  - Configuration - system, OTN port and OTN cross-connect.
-  - State report - system, OTN port and OTN cross-connect.
-  - Operations: restart (warm, cold and power-on), SW/FW upgrade
+  - Configuration - system (network, ntp, syslog), OTN optical modules.
+  - State report - system, OTN optical modules.
+  - Chassis management
+     - Supervisor card, line card, power module, fan, manufacturing info
+     - Operations: restart (warm, cold and power-on), SW/FW upgrade
   - Telemetry: Data streaming for time sensitive state.
   - Alarm notification for system faults.
   - PM statistics counters for important performance parameters.
-
 
 ### 5.2 Scaling requirements
 
@@ -264,11 +266,11 @@ Most OTN devices are chassis-based with control cards and line cards. PMON will 
 
 While SAI APIs support core packet-switching features, they also include built-in extension mechanisms that allow developers to add new objects and APIs. Here is the [SAI experimental extension design](https://github.com/opencomputeproject/SAI/blob/master/doc/SAI-Extensions.md). The SAI extension mechanism provides:
 
-- Add new attributes, ex., add new attributes in saiswitchextensions.h.
+- Add new attributes, e.g., add new attributes in saiswitchextensions.h.
 - Add new API types in saiextension.h.
 - Add new object types in saitypesextensions.h.
 - Cannot modify existing SAI.
-- Add new attributes, ex., add new attributes in for the new APIs.
+- Add new attributes for the new APIs (e.g., in experimental headers).
 
 ### 7.3 OTN Extension To SAI
 
@@ -302,8 +304,6 @@ This section describes the SWSS and Syncd to support OTN features.
 
 In SWSS container, a new config manager daemon, [`otnmgrd`](https://github.com/sonic-otn/sonic-swss/blob/202411_otn/cfgmgr/otnmgrd.cpp), is created to subscribe the changes in OTN tables in config DB. When config change is notified, OTN config manager update the corresponding tables in APP DB.
 
-[**TBD**] How the failure is handled, if the config change does not pass the business logic validation? SONiC configuration is managed asynchronously, i.e., the config will be accepted and stored in config DB, even the low level/HW processing fails.
-
 #### 8.2.2 SWSS orchagent
 
 Orchagent is extended with a [separate folder](https://github.com/sonic-otn/sonic-swss/tree/202411_otn/orchagent/otn) to support OTN devices.
@@ -332,7 +332,7 @@ Currently, SONiC supports two types of Orch Daemon based on `switchType`: orchDa
 ``` c++
     if(gMySwitchType == "otn")
     {
-        create orchDaemon = make_shared<OtnOrchDaemon>;
+        orchDaemon = make_shared<OtnOrchDaemon>;
     }
     else if (switchType != "fabric")
     {
@@ -465,7 +465,7 @@ When a SAI object is created, the corresponding FlexCounter is set up to collect
 ```Diff
    --- syncd
     |--- FlexCounter.(h|cpp)
-+   |--- FlexcounterOtn.(h|cpp)
++   |--- FlexCounterOtn.(h|cpp)
 ```
 
 Similarly, SAI Object (de)serialization is also implemented in separate files `meta/sai_serialize_otn` from the main file `sai-serialize`.
@@ -551,9 +551,11 @@ Python classes are implemented to model the generic hardware structure and opera
 
 #### 8.5.2  Device specific platform config and driver
 
-The JSON file [code here](https://github.com/sonic-otn/sonic-buildimage/blob/202411_otn/device/molex/x86_64-otn-kvm_x86_64-r0/platform.json) is to define the OTN device HW hierarchy described above. This config file is device specific for a particular OTN device.
+The JSON file [code here](https://github.com/sonic-otn/sonic-buildimage/blob/202411_otn/device/molex/x86_64-otn-kvm_x86_64-r0/platform.json) is to define the OTN device HW hierarchy described above. This config file is device specific for a particular OTN device, shown as in the following diagram:
 
-An example of driver of PMON is [implemented here](https://github.com/sonic-otn/sonic-buildimage/tree/202411_otn/platform/otn-kvm/sonic-platform-modules-otn-kvm/ols-v).
+<img src="./images/pmon-drivers.png" alt="Redis script" width="600">
+
+An implementation of driver of PMON is [implemented here](https://github.com/sonic-otn/sonic-buildimage/tree/202411_otn/platform/otn-kvm/sonic-platform-modules-otn-kvm/ols-v). driver simulator is [here](https://github.com/sonic-otn/sonic-otn-libs).
 
 #### 8.5.3 Linecard Hot-pluggable (**Enhancement**)
 
@@ -749,12 +751,15 @@ gnmic -a 127.0.0.1:8080 \
    }`
 ```
 One of the most useful gNMI capabilities is subscription support in the following modes:
-- once
-- polling 
+- once (same as get)
+- polling (interval controlled by clients)
 - streaming (sample, on change)
 
-Wildcard in the path is also supported.
+Wildcard in the path is also supported as shown in the following diagram:
 
+<img src="./images/gnmi-telemetry.png" alt="Telemetry" width="600">
+
+Here are the examples for telemetry subscription:
 ```bash
 ## Sample mode wildcard support:
 ## 1. In this mode, the client sends a stream subscription request and the server pushes updates at the default server rate. NOTE: the default stream sample rate is 20 seconds.
@@ -763,17 +768,69 @@ Wildcard in the path is also supported.
 gnmic   --address 127.0.0.1:8080   --username admin   --password YourPaSsWoRd   --insecure   subscribe   --print-request   --mode stream   --stream-mode sample   --target OC-YANG   --path 'openconfig-optical-attenuator:optical-attenuator/attenuators/attenuator[name=*]/state'
 
 ## Path Wildcards (Leaf node discovery) By subscribing to a parent container, the Table Transformer recursively discovers all underlying list members. This is useful for fetching the entire hierarchy of a device in one stream.
- gnmic --address 127.0.0.1:8080   --username admin   --password YourPaSsWoRd   --insecure   subscribe --mode stream  --stream-mode sample  --target OC-YANG  --path 'openconfig-channel-monitor:channel-monitors/channel-monitor[name=OCM0-0]/channels'
+gnmic --address 127.0.0.1:8080   --username admin   --password YourPaSsWoRd   --insecure   subscribe --mode stream  --stream-mode sample  --target OC-YANG  --path 'openconfig-channel-monitor:channel-monitors/channel-monitor[name=OCM0-0]/channels'
+
+## on change mode for non-frequent status change
+gnmic   --address 127.0.0.1:8080   --username admin   --password YourPaSsWoRd   --insecure   subscribe   --print-request   --mode stream   --stream-mode on-change  --target OC-YANG   --path 'openconfig-optical-attenuator:optical-attenuator/attenuators/attenuator[name=*]/state/enabled'
 
 ```
+As a guideline, 
+- For continuously changed optical analog value(power, attenuation, gain etc.), sampling with a interval (5 seconds) should be used.
+- For more static status (up/down, enabled/disabled and alarm and event), on-change mode should be used. 
 
-#### 9.2.5 CLI
+##### gNMI Performance Analysis
+A high performance system is measured in two aspects:
+- Response time, for example, 100ms for all OCM get request, 100ms for set all WSS channels' attenuation etc..
+- Data freshness: Counter DB is updated by syncd thread periodically and lua script then updates the State DB accordingly. Therefore, the data freshness in State DB depends on the syncd thread's polling interval, currently 1 second.
+- Reasonable resource usage (CPU/RAM)
 
-Most SONiC CLI is implemented in sonic-utility based on the [Python click library](https://click.palletsprojects.com/en/8.1.x/). These CLIs are supported in [sonic-utilities](https://github.com/sonic-net/sonic-utilities). It is preferred that OTN CLI adopt auto-generation instead of hard-coded Python for better maintenance and consistency.
+When management framework receives gNMI subscription request, the framework will subscribe changes in the corresponding Redis DB tables, based on subscribe yang path. 
 
-Automatically generates click based Python CLI code from SONiC yang, using [SONiC CLI auto-generation tool](https://github.com/sonic-net/SONiC/blob/master/doc/cli_auto_generation/cli_auto_generation.md).
+<img src="./images/telemetry-performance.png" alt="Telemetry Performance" width="600">
 
-TBD
+As shown in the above diagram:
+- With the wildcard key in the path for gNMI subscription. Both on-change and sampling attributes can be stored in the same DB table.
+- The SYNCD thread poll interval should be finer granularity than gNMI telemetry so that the STATE DB is refreshed more frequently than the telemetry sampling interval to prevent the stale data. (syncd thread polling interval 1s, and gNMI sampling 5 s).
+- As SONiC Redis DB change can only be subscribed at DB Table (Seems). It is possible that gNMI server would be notified change every 1s.
+
+Performance benchmark test will be done when a fully functional kvm ILA device (OA, VOA, OCM, WSS/DEG, with 4 line cards) is completed.
+
+#### 9.2.5 CLI Enhancement for OTN (**Generic SONiC enhancement**)
+
+Most SONiC CLI is implemented in sonic-utility based on the [Python click library](https://click.palletsprojects.com/en/8.1.x/). These CLIs are supported in [sonic-utilities](https://github.com/sonic-net/sonic-utilities). It is preferred that OTN CLI supports auto-generation instead of hard-coded Python for better maintenance and consistency.
+
+SONiC provides a tool for automatically generating click CLIs based SONiC yang, see [SONiC CLI auto-generation tool](https://github.com/sonic-net/SONiC/blob/master/doc/cli_auto_generation/cli_auto_generation.md). However, the current cli auto generation tool only support cli show/config on in Condig DB. A [PR](https://github.com/sonic-net/sonic-utilities/pull/3222) is submitted to enhance the tool for support show in State DB.
+
+**openconfig yang to SONiC yang translation**
+Because `sonic-cli-gen` generates CLI python code from sonic-yang and OTN uses openconfig yang, [an auto-translation tool](https://github.com/sonic-otn/sonic-buildimage/blob/202411_otn/platform/otn-kvm/sonic-yanggen/sonic_yanggen.py) is developed to translate openconfig yang to sonic yang. `sonic_yanggen.py` processes an openconfig yang model and its annotation yang, which defines the openconfig yang to Redis table schema. Then a corresponding sonic yang is generated. The generated sonic yang is then used to generate CLI by `sonic-cli-gen`, as shown in the following diagram:
+
+<img src="./images/cli-autogen.png" alt="CLI autogen" width="600">
+
+**Device specific CLI generation**
+As each device may have different capabilities and only support a subset of OTN functionality, CLI generation must be device specific to avoid including unsupported CLI. 
+- The yang model supported by a device is configured in device/{vendor}/{platform}/yang_auto_cli to enable generation.
+```bash
+# Example: device/molex/x86_64-otn-kvm_x86_64-r0/yang_auto_cli
+openconfig-optical-attenuator.yang openconfig-optical-attenuator-annot.yang
+openconfig-optical-amplifier.yang openconfig-optical-amplifier-annot.yang
+```
+Here is the work flow:
+- At build time
+  - Compiles libyang (and Python bindings) from source.
+  - Scans device/ directory for yang_auto_cli config file and converts specified OpenConfig yang and its annotations to SONiC YANG models using sonic_yanggen.py.
+  - Packages generated sonic yang files into /usr/share/sonic/device-yang/{platform}/.
+
+- At SONiC start up
+  - sonic-yanggen.service runs on startup.
+  - Executes yang_auto_cli.sh to register CLI commands. The script only processes files specifically for this `ONIE platform` (ex. x86_64-otn-kvm_x86_64-r0). 
+  
+As a result, the CLI applicable for that device is generated.
+
+**Vertical display support**
+
+Existing sonic-cli-gen display a Redis table in which each object is in a horizontal format, i.e., a row. This causes an issue when a object has many entries and the data beyond the screen width is truncated. To fix that issue an vertical option is added for sonic-cli-gen, so that each object will be displayed vertically to show all the attributes. See the following screenshot for the original sonic (horizontal) and improved vertical format.
+<img src="./images/cli-horizontal.png" alt="CLI horizontal" width="600">
+<img src="./images/cli-vertical.png" alt="CLI vertical" width="600">
 
 ### 9.3. Config DB Enhancements  
 
@@ -818,7 +875,7 @@ STATE_DB:
 =========
 OTN_ATTENUATOR_TABLE
 ;/openconfig-optical-attenuator:optical-attenuators/attenuator/state
-key                 = OTN_ATTENUATOR_TABLE|VOS<slot>-<num>  ; string
+key                 = OTN_ATTENUATOR_TABLE|VOA<slot>-<num>  ; string
 ;field              = value
 attenuation-mode    = STRING                 ; identityref
 target-output-power = float64                ; yang decimal64, json Number
@@ -932,5 +989,21 @@ Example sub-sections for unit test cases and system test cases are given below.
 ### 13.2. System Test cases
 
 ## 14. Open/Action items - if any
+
+### 14.1 Asynchronous Config Validation 
+
+Currently, SONiC management framework CVL validates the configuration data from NBI against the Redis scheme defined by sonic yang. This ensures that the data written to Redis is semantically correct.
+
+Sometimes this is not enough due to lack of optical domain business logic check. An example would be the value range check, which can only be done in orchagent or even SAI driver. For example, if a user sets gain to an out-of-range value (40dB), it would be successfully stored in the config DB. But the oaorch or SAI driver would reject it, as shown in the following diagram.
+
+<img src="./images/async-config.png" alt="Line Card Hot Pluggable" width="600">
+
+How the failure is handled, if the config change does not pass the business logic validation? SONiC configuration is managed asynchronously, i.e., the config will be accepted and stored in config DB, even the low level/HW processing fails. Possible solution include:
+- Make all set request synchronous. 
+- Send notification to the NBI for config fail.
+
+### 14.2 Threshold Management  (**TBD**)
+
+Optical device requires various thresholds to check signal quality. 
 
 NOTE: All the sections and sub-sections given above are mandatory in the design document. Users can add additional sections/sub-sections if required.
