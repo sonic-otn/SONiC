@@ -1,19 +1,19 @@
-# SONiC OTN High-Level Design (HLD)
+# SONiC OTN HLD And Developer Guide
 
-This document provides a High-Level Design (HLD) for extending SONiC to support optical transport network (OTN) devices. Its description is based on the codebase developed by the [SONiC OTN Working Group](https://lists.sonicfoundation.dev/g/sonic-wg-otn).
+This document provides an HLD for developing a NOS for optical devices based on SONiC. Its description is based on the codebase developed by the [SONiC OTN Working Group](https://lists.sonicfoundation.dev/g/sonic-wg-otn). This document can also serve as a developer guideline for anyone interested in developing a SONiC-based optical NOS. It should also be useful for new sonic-otn participants to understand the sonic-otn project in detail.
 
 - The codebase of the ongoing prototype is [OTN kvm](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev).
 - The build and run instructions for OTN kvm are described in the [README.md](https://github.com/sonic-otn/sonic-buildimage/blob/otn-dev/platform/otn-kvm/README.md).
 
 ## Table Of Contents
 
-- [SONiC OTN High-Level Design (HLD)](#sonic-otn-high-level-design-hld)
+- [SONiC OTN HLD And Developer Guide](#sonic-otn-hld-and-developer-guide)
   - [Table Of Contents](#table-of-contents)
   - [1 Revision](#1-revision)
   - [2 Scope](#2-scope)
   - [3 Definitions/Abbreviations](#3-definitionsabbreviations)
     - [Table 1: Abbreviations](#table-1-abbreviations)
-  - [4 Overview](#4-overview)
+  - [4. Overview](#4-overview)
     - [4.1 OTN Device And Components Overview](#41-otn-device-and-components-overview)
     - [4.2 Why SONiC For OTN](#42-why-sonic-for-otn)
   - [5 Requirements](#5-requirements)
@@ -25,43 +25,72 @@ This document provides a High-Level Design (HLD) for extending SONiC to support 
   - [6 Architecture Design](#6-architecture-design)
     - [6.1 Design Principles](#61-design-principles)
     - [6.2 SONiC Extension Points For OTN Support](#62-sonic-extension-points-for-otn-support)
-  - [7 High-Level Design](#7-high-level-design)
-    - [7.1 High-Level Design Summary](#71-high-level-design-summary)
-    - [7.2 OTN Device Metadata And Simulator](#72-otn-device-metadata-and-simulator)
-    - [7.3 SWSS Extension For OTN Optical Features](#73-swss-extension-for-otn-optical-features)
-    - [7.4 OTN State DB Update](#74-otn-state-db-update)
-    - [7.5 Syncd Extension](#75-syncd-extension)
-    - [7.6 PMON](#76-pmon)
-    - [7.7 SONiC Host Containers](#77-sonic-host-containers)
-  - [8 SAI API](#8-sai-api)
-    - [8.1 Functional Scope Of SAI For OTN Device](#81-functional-scope-of-sai-for-otn-device)
-    - [8.2 SAI Experimental Extension Mechanism](#82-sai-experimental-extension-mechanism)
-    - [8.3 OTN Extension To SAI](#83-otn-extension-to-sai)
-  - [9 Configuration And Management](#9-configuration-and-management)
-    - [9.1 Manifest](#91-manifest)
-    - [9.2 CLI/YANG Model Enhancements](#92-cliyang-model-enhancements)
-    - [9.3 Config DB Enhancements](#93-config-db-enhancements)
-    - [9.4 NBI Configuration Validation](#94-nbi-configuration-validation)
-    - [9.5 Event And Alarm Support](#95-event-and-alarm-support)
-    - [9.6 OTN PM Statistics Support](#96-otn-pm-statistics-support)
-    - [9.7 Reuse SONiC Existing Features](#97-reuse-sonic-existing-features)
-  - [10 Warmboot And Fastboot Design Impact](#10-warmboot-and-fastboot-design-impact)
-    - [Warmboot And Fastboot Performance Impact](#warmboot-and-fastboot-performance-impact)
-  - [11 Memory Consumption](#11-memory-consumption)
-  - [12 Restrictions/Limitations](#12-restrictionslimitations)
-  - [13 Testing Requirements/Design](#13-testing-requirementsdesign)
-    - [13.1 Unit Test Cases](#131-unit-test-cases)
-    - [13.2 System Test Cases](#132-system-test-cases)
-  - [14 Open/Action Items](#14-openaction-items)
-
-
+  - [7. SAI API](#7-sai-api)
+    - [7.1 Functional Scope Of SAI For OTN Device](#71-functional-scope-of-sai-for-otn-device)
+    - [7.2 SAI Experimental Extension Mechanism](#72-sai-experimental-extension-mechanism)
+    - [7.3 OTN Extension To SAI](#73-otn-extension-to-sai)
+  - [8 SONiC Container Extension For OTN](#8-sonic-container-extension-for-otn)
+    - [8.1 OTN Device Metadata And Simulator](#81-otn-device-metadata-and-simulator)
+    - [8.2 SWSS Extension For OTN Optical Features](#82-swss-extension-for-otn-optical-features)
+      - [8.2.1 SWSS Config Manager](#821-swss-config-manager)
+      - [8.2.2 SWSS Orchagent](#822-swss-orchagent)
+      - [8.2.3 Orchagent Superclass (***Common Code Optimization***)](#823-orchagent-superclass-common-code-optimization)
+    - [8.3 OTN State DB Update](#83-otn-state-db-update)
+      - [8.3.1 SONiC SWSS Redis Plug In Script](#831-sonic-swss-redis-plug-in-script)
+      - [8.3.2 State DB Update](#832-state-db-update)
+      - [8.3.3 Device Specific Lua Scripts (***Common Code Optimization***)](#833-device-specific-lua-scripts-common-code-optimization)
+    - [8.4 Syncd Extension](#84-syncd-extension)
+      - [8.4.1 FlexCounter Extension](#841-flexcounter-extension)
+      - [8.4.2 OTN Gauged Value Modeling](#842-otn-gauged-value-modeling)
+    - [8.5 PMON](#85-pmon)
+      - [8.5.1 PMON Base Class](#851-pmon-base-class)
+      - [8.5.2 Device Specific Platform Config And Driver](#852-device-specific-platform-config-and-driver)
+      - [8.5.3 Linecard Hot Pluggable (***Feature Enhancement***)](#853-linecard-hot-pluggable-feature-enhancement)
+      - [8.5.4 Firmware Upgrade](#854-firmware-upgrade)
+    - [8.6 SONiC Host Containers](#86-sonic-host-containers)
+  - [9. Device Configuration And Management](#9-device-configuration-and-management)
+    - [9.1. Manifest (If The Feature Is An Application Extension)](#91-manifest-if-the-feature-is-an-application-extension)
+    - [9.2. OTN YANG Model](#92-otn-yang-model)
+      - [9.2.1 OpenConfig Optical Transport YANG Model](#921-openconfig-optical-transport-yang-model)
+      - [9.2.2 Generic Translation And Mapping](#922-generic-translation-and-mapping)
+      - [9.2.3 REST](#923-rest)
+      - [9.2.4 gNMI And Telemetry](#924-gnmi-and-telemetry)
+      - [9.2.5 CLI Auto Generation For OTN (***Feature Enhancement***)](#925-cli-auto-generation-for-otn-feature-enhancement)
+    - [9.3 NBI Configuration Validation](#93-nbi-configuration-validation)
+      - [9.3.1 Issue Related To The SONiC Async Configuration](#931-issue-related-to-the-sonic-async-configuration)
+      - [9.3.2 Runtime Business Logic Validation](#932-runtime-business-logic-validation)
+      - [9.3.3 Device Specific Configuration Value Range Checks (***New Feature***)](#933-device-specific-configuration-value-range-checks-new-feature)
+    - [9.4 CLI Filtering Mechanism (***New Feature***)](#94-cli-filtering-mechanism-new-feature)
+    - [9.5. Config And State DB Schema For OTN](#95-config-and-state-db-schema-for-otn)
+    - [9.6 Event And Alarm Support](#96-event-and-alarm-support)
+      - [9.6.1 SONiC Notification](#961-sonic-notification)
+      - [9.6.2 Notification Extension For OTN](#962-notification-extension-for-otn)
+      - [9.6.3 OTN Notification Definition And NBI](#963-otn-notification-definition-and-nbi)
+    - [9.7 OTN PM Statistics Support (***New Feature***)](#97-otn-pm-statistics-support-new-feature)
+      - [9.7.1 PM Design Objective:](#971-pm-design-objective)
+      - [9.7.2 Design Proposal](#972-design-proposal)
+      - [9.7.3 YANG Model And Redis Schema](#973-yang-model-and-redis-schema)
+    - [9.8 Reuse SONiC Existing Features](#98-reuse-sonic-existing-features)
+      - [9.8.1 Management And Loopback Interface](#981-management-and-loopback-interface)
+      - [9.8.2 TACACS+ AAA](#982-tacacs-aaa)
+      - [9.8.3 Syslog](#983-syslog)
+      - [9.8.4 NTP](#984-ntp)
+      - [9.8.5 SONiC Upgrade](#985-sonic-upgrade)
+  - [10. Warmboot And Fastboot Design Impact](#10-warmboot-and-fastboot-design-impact)
+  - [11. Memory Consumption](#11-memory-consumption)
+  - [12. Restrictions/Limitations](#12-restrictionslimitations)
+  - [13. Testing Requirements/Design (**TBD**)](#13-testing-requirementsdesign-tbd)
+    - [13.1. Unit Test Cases](#131-unit-test-cases)
+    - [13.2. System Test Cases](#132-system-test-cases)
+  - [14. Open/Action Items If Any](#14-openaction-items-if-any)
+    - [14.1 Threshold Management (**TBD**)](#141-threshold-management-tbd)
 
 ## 1 Revision
 
 
 | Rev | Date       | Author                                                                                                                  | Change Description |
 | --- | ---------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 0.1 | 08/07/2026 | [sonic-otn-wp](https://lists.sonicfoundation.dev/g/sonic-wg-otn): Alibaba, Microsoft, Molex, Nokia, Cisco and Accelink. | Initial version    |
+| 0.1 | 02/20/2026 | [sonic-otn-wp](https://lists.sonicfoundation.dev/g/sonic-wg-otn): Alibaba, Microsoft, Molex, Nokia, Cisco and Accelink. | Initial version    |
 
 
 ## 2 Scope
@@ -71,6 +100,7 @@ This document describes the architecture and high-level design for extending SON
 ## 3 Definitions/Abbreviations
 
 ### Table 1: Abbreviations
+
 
 |      |                                   |
 | ---- | --------------------------------- |
@@ -89,11 +119,12 @@ This document describes the architecture and high-level design for extending SON
 | OTDR | Optical Time Domain Reflectometer |
 | DCI  | Data center interconnect          |
 
-## 4 Overview
 
-OTN devices are deployed for connecting data centers and optical hubs via optical fibers, serving as an L0 transport layer that connects the ports of switches and routers between geographically dispersed data centers. This enables high-speed, low-latency, and reliable optical connections either point-to-point (P2P) or across long distances (long haul).
+### 4. Overview
 
-### 4.1 OTN Device And Components Overview
+OTN devices are deployed for connecting data centers and optical hubs via optical fibers, serving as an L0 transport layer that connects the ports of switches and routers between geographically dispersed data centers. This enables high-speed, low-latency, and reliable optical connections either point-to-point (P2P) or across long distances (long haul). 
+
+#### 4.1 OTN Device And Components Overview
 
 OTN devices are typically built as chassis of various sizes housing multiple optical line cards, fans, power supply units (PSUs), and control modules. All system modules and optical line cards are pluggable for easy field replacement.
 
@@ -108,19 +139,18 @@ The optical line cards host a common set of optical component units that provide
 - **Optical Time-Domain Reflectometer (OTDR)** – Measures attenuation and reflection losses along fibers.
 - **Transponders and Transceivers** – Convert electrical signals into optical signals for fiber transmission.
 
-### 4.2 Why SONiC For OTN
+#### 4.2 Why SONiC For OTN
 
-The **SONiC for OTN project** proposes extending SONiC to support optical transport networks, enabling end-to-end deployment across both packet and optical layers.
+The **SONiC for OTN project** proposes extending SONiC to support optical transport networks, enabling end-to-end deployment across both packet and optical layers. 
 
 A NOS in OTN device can be illustrated in the following diagram.
-
 
 <img src="./images/otn-device-nos.png" alt="otn device overview" style="zoom: 125%;" />
 
 Currently most NOSes running on commercial optical devices are proprietary software. By introducing SONiC support for OTN, the benefits include:
 
 - SONiC has been widely adopted in hyper-scale networks as a white-box switch NOS. With optical support in SONiC, users can have consistent end-to-end network management from the IP layer (switches and routers) to the optical transport layer (OTN devices). This significantly simplifies network management tools and controllers. It also creates the potential for a single SDN controller infrastructure across all layers and enables movement toward an open, converged multi-layer network management solution.
-- For optical device vendors, instead of investing the entire effort to develop and maintain a proprietary NOS, existing SONiC NOS infrastructure and generic features, such as user management, security, and management network modules, can be reused. This reduces time to market, improves software quality, and lowers development costs.
+- For optical device vendors, instead of investing the entire effort to develop and maintain a proprietary NOS, existing SONiC NOS infrastructure and generic features, such as user management, security, and management network modules, can be reused. This reduces time to market, improves software quality, and lowers development costs. 
 - Joining the SONiC ecosystem also allows vendors and users to collaborate more effectively through the SONiC open-source community.
 
 This document provides a high-level design for extending SONiC to support OTN devices, including YANG models, SAI APIs, orchestration agent changes, Syncd updates, Config DB and APP DB schemas, and other SONiC changes required to bring up a SONiC image on an OTN device.
@@ -131,7 +161,7 @@ This document provides a high-level design for extending SONiC to support OTN de
 
 At a high level the following should be supported:
 
-- Bring up SONiC image for a new platform, [otn-kvm](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/platform/otn-kvm), and DEVICE_METADATA type - `OtnOls` with a [kvm device](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/device/virtual/x86_64-otn-kvm_x86_64-r0).
+- Bring up SONiC image for a new platform, [otn-kvm](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/platform/otn-kvm), and DEVICE_METADATA type - `OtnOls` with a [kvm device](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/device/molex/x86_64-otn-kvm_x86_64-r0).
 - Bring up SWSS/Syncd containers for switch_type - `otn`
 - Able to manage OTN device configured via REST, gNMI client and CLI
 - Device Management functions including:
@@ -143,7 +173,6 @@ At a high level the following should be supported:
   - Telemetry: Data streaming for time sensitive state.
   - Alarm notification for system faults.
   - PM statistics counters for important performance parameters.
-
 
 ### 5.2 Scaling Requirements
 
@@ -178,11 +207,13 @@ For each PM parameter, the following statistics should be available:
 
 PM parameters listed in the following table should be supported: **[TBD]**
 
+
 | PM name             | Data Type |
 | ------------------- | --------- |
 | Chassis Temperature | decimal2  |
 | OA1-1 Input Power   | decimal2  |
 | Fan-0 Speed         | uint32    |
+
 
 ### 5.5 Telemetry
 
@@ -198,7 +229,7 @@ Telemetry subscribe paths should support wildcard keys for convenient filtering 
 
 ## 6 Architecture Design
 
-This section describes the overall changes needed for supporting OTN devices. In general, the current SONiC architecture is not changed; OTN support is added by leveraging SONiC's existing extension mechanisms and adding OTN-specific features that are isolated from packet-switching logic.
+This section describes the overall changes needed for supporting OTN devices.
 
 ### 6.1 Design Principles
 
@@ -206,7 +237,7 @@ While SONiC is a packet-switch NOS, its modular design and built-in extensibilit
 
 The following guidelines should be followed while developing a SONiC-based NOS for OTN.
 
-sonic extension points for OTN
+<img src="./images/otn-extension.png" alt="sonic extension points for OTN" style="zoom: 90%;" />
 
 - Fully utilize SONiC's rich extension mechanisms to make changes as seamless as possible, so OTN support becomes an organic part of SONiC.
 - Reuse SONiC generic system features as-is, including NBI (REST, CLI, gNMI), telemetry, user management, syslog notifications, SW/FW upgrade, and chassis/PSU/LED/FAN/temperature management.
@@ -214,13 +245,9 @@ sonic extension points for OTN
 - For major feature gaps, such as PM, alarms, and hot-plug support, enhancements should be designed and implemented generically, not only for OTN.
 - All changes should be compatible with the upstream SONiC codebase and ready to merge. The final goal is for all OTN vendors to pull official SONiC code and build SONiC OTN images for their devices.
 
-
-
 ### 6.2 SONiC Extension Points For OTN Support
 
 The following diagram shows the main changes and SONiC extension points required to support OTN devices:
-
-<img src="./images/otn-extension.png" alt="sonic extension points for OTN" style="zoom: 90%;" />
 
 1. NBI: Add OTN YANG models and support REST API and CLI. OpenConfig [optical transport YANG models](https://github.com/openconfig/public/tree/master/release/models/optical-transport) are adopted.
 2. Redis DB: Add new CONFIG, STATE and APP tables for OTN device.
@@ -231,46 +258,94 @@ The following diagram shows the main changes and SONiC extension points required
 7. Optical Control: Introduce a new application container, optical-control, which contains multiple daemons for span and wavelength control loops.
 8. ONIE: Create an ONIE image for installing the SONiC image on OTN devices; support secure boot.
 
-## 7 High-Level Design
+## 7. SAI API
 
-This section covers the high-level design of the OTN enhancement and how the OTN-specific modules fit into the existing SONiC architecture.
+This section covers the changes made and new APIs added in SAI for implementing this feature.
 
-### 7.1 High-Level Design Summary
+In SONiC architecture, SAI (Switch Abstraction Interface) is a core interface layer that decouples SONiC control software from vendor-specific hardware implementations. Upper-layer SONiC components (such as Orchagent via the sairedis/syncd path) use standardized SAI object models and APIs, while each vendor provides its own SAI implementation to map those APIs to device SDK/driver operations.
 
-- **Built-in feature vs Application Extension:** OTN support is implemented as a set of **built-in SONiC enhancements and extensions** (new switch/device type, new Orchagent daemon, SAI experimental extensions, PMON platform modules, YANG models), not as a SONiC Application Extension. Therefore no application-extension manifest is required (see [Section 9.1](#91-manifest)).
-- **Modules/sub-modules modified:** DEVICE_METADATA (new `OtnOls` type / `otn` switch_type), SWSS (new `otnmgrd` config manager, `OtnOrchDaemon`, `ObjectOrch` superclass), Syncd/sairedis (`FlexCounterOtn`, OTN serialize), SAI (experimental OTN extensions), PMON (platform base classes, `chassisd`/`linecardsyncd`, drivers), management framework (OpenConfig YANG, Translib transformer, CVL), and sonic-utilities (CLI auto-generation, CLI filtering).
-- **Repositories changed:**
+By using SAI as the hardware abstraction boundary, SONiC can keep most control-plane logic hardware-agnostic, improve portability across different platforms, and reduce vendor-specific changes in the SONiC core.
+
+### 7.1 Functional Scope Of SAI For OTN Device
+
+Following the existing SONiC design, SAI is extended to support optical features while generic system functionality remains in the PMON container. This functional division is shown in the following diagram:
+
+```mermaid
+flowchart LR
+    subgraph EQUIPMENT["Equipment Management"]
+        direction TB
+        em_bullets["Chassis, PSU, Fan, LED, SFP, Module SC/LC, Components BIOS FPGA CPLD OA OCM OPS OTDR, Inventory, Admin-status, restart, SW/FW upgrade, hot-pluggable"]
+        subgraph PMON["PMON container"]
+            direction TB
+            daemon["daemon"]
+            python_base["Python Base Class"]
+            platform_drivers["Platform drivers, libotn"]
+            daemon --> python_base
+            python_base --> platform_drivers
+        end
+        em_bullets --> daemon
+    end
+
+    sep["|"]
+
+    subgraph OPTICAL["Optical Function"]
+        direction TB
+        of_bullets["AMP gain/tilt, VOA attenuation, OCM channel power, OTDR scan/SOR, WSS median-channel, OTN channels and interface"]
+        subgraph SYNCDBOX["Syncd container"]
+            direction TB
+            syncd_node["syncd"]
+            sai_api["SAI API"]
+            vendor_sai["Vendor SAI, libsaiotn"]
+            hal_driver["HAL driver, libhal-otn"]
+            syncd_node --> sai_api
+            sai_api --> vendor_sai
+            vendor_sai --> hal_driver
+        end
+        of_bullets --> syncd_node
+    end
+
+    platform_drivers --> sep
+    sep --> sai_api
+
+    style sep fill:none,stroke:#1565c0,stroke-width:3px,color:#0d47a1
+    style em_bullets fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style of_bullets fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style python_base fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style sai_api fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style platform_drivers fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style vendor_sai fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style hal_driver fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style daemon fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style syncd_node fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style EQUIPMENT fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style OPTICAL fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style PMON fill:#f5f9ff,stroke:#1565c0,stroke-dasharray:5 5,color:#0d47a1
+    style SYNCDBOX fill:#f5f9ff,stroke:#1565c0,stroke-dasharray:5 5,color:#0d47a1
+```
 
 
-| Repository                                     | OTN changes                                                                                                                                                                          |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| sonic-buildimage                               | New `otn-kvm` platform, `x86_64-otn-kvm_x86_64-r0` device, `rules/config` container enablement, device data (Lua scripts, platform.json, cli_unwanted.json, cvl-yang, yang_auto_cli) |
-| sonic-swss                                     | `otnmgrd` config manager, `orchagent/otn` (`OtnOrchDaemon`, `ObjectOrch`, per-object orch)                                                                                           |
-| sonic-sairedis                                 | `FlexCounterOtn`, `meta/sai_serialize_otn`, Syncd OTN attribute handling                                                                                                             |
-| sonic-swss-common                              | New OTN Config/State DB tables in `schema.h`                                                                                                                                         |
-| SAI                                            | Experimental OTN objects, attributes, notifications, `@precision` tag                                                                                                                |
-| sonic-mgmt-common                              | OpenConfig YANG annotations, SONiC YANG, Translib transformer, CVL custom/range validation                                                                                           |
-| sonic-utilities                                | OTN CLI auto-generation (`sonic-yanggen`), CLI filtering                                                                                                                             |
-| sonic-platform-common / sonic-platform-daemons | PMON base classes, `chassisd`/`linecardsyncd`, firmware upgrade APIs                                                                                                                 |
-| sonic-otn-libs (external)                      | Open-source SAI/driver simulator, released as Debian package                                                                                                                         |
 
+Most OTN devices are chassis-based with control cards and line cards. PMON will be enhanced to support the line card hot-pluggable feature described below.
 
-- **SWSS and Syncd changes:** described in detail in [Section 7.3](#73-swss-extension-for-otn-optical-features), [Section 7.4](#74-otn-state-db-update) and [Section 7.5](#75-syncd-extension).
-- **DB and Schema changes:** New CONFIG_DB / STATE_DB / COUNTERS_DB (FlexCounter) tables and an Event DB / History DB usage for alarms and PM. Schema is detailed in [Section 9.3](#93-config-db-enhancements) and [Section 9.6](#96-otn-pm-statistics-support).
-- **Linux dependencies and interface:** PMON kernel/user drivers for FAN/PSU/LED/temperature/FPGA; management/loopback interfaces reuse standard SONiC/Linux networking.
-- **Warm/Fast reboot:** No impact on existing behavior; see [Section 10](#10-warmboot-and-fastboot-design-impact).
-- **Scalability/performance:** See scaling requirements ([Section 5.2](#52-scaling-requirements)) and gNMI performance analysis ([Section 9.2](#92-cliyang-model-enhancements)).
-- **Memory:** Lower than a packet switch since packet features are disabled; see [Section 11](#11-memory-consumption).
-- **Docker dependency:** Reuses SWSS, Syncd, PMON, Database, Telemetry, gNMI, REST, SNMP, LLDP, BGP containers; packet-only containers are disabled ([Section 7.7](#77-sonic-host-containers)).
-- **Build dependency:** SAI OTN driver Debian package is pulled at build time; `rules/config` selects OTN container set.
-- **Management interfaces:** REST/RESTCONF, gNMI/telemetry, and CLI, all driven by OpenConfig YANG ([Section 9.2](#92-cliyang-model-enhancements)).
-- **Serviceability and debug:** syslog, gNMI subscription, event/alarm framework ([Section 9.5](#95-event-and-alarm-support)) and PM statistics ([Section 9.6](#96-otn-pm-statistics-support)).
-- **Platform-specific dependencies:** Vendors provide platform data (drivers, Lua scripts, platform.json, CVL range YANG, CLI configuration) and a vendor SAI implementation for their OTN hardware.
-- **SAI API requirements:** New experimental OTN objects/attributes/notifications; see [Section 8](#8-sai-api).
+### 7.2 SAI Experimental Extension Mechanism
+
+While SAI APIs support core packet-switching features, they also include built-in extension mechanisms that allow developers to add new objects and APIs. Here is the [SAI experimental extension design](https://github.com/opencomputeproject/SAI/blob/master/doc/SAI-Extensions.md). The SAI extension mechanism provides:
+
+- Add new attributes, e.g., add new attributes in saiswitchextensions.h.
+- Add new API types in saiextension.h.
+- Add new object types in saitypesextensions.h.
+- Cannot modify existing SAI.
+- Add new attributes for the new APIs (e.g., in experimental headers).
+
+### 7.3 OTN Extension To SAI
+
+The SAI extension for OTN devices is proposed [here](./sai_otn_proposal.md).
+
+## 8 SONiC Container Extension For OTN
 
 This section describes changes at SONiC container level to support OTN devices.
 
-### 7.2 OTN Device Metadata And Simulator
+### 8.1 OTN Device Metadata And Simulator
 
 In the DEVICE metadata table, a new type, `OtnOls`, and a new `switch_type`, `otn`, are added:
 
@@ -286,10 +361,10 @@ In the DEVICE metadata table, a new type, `OtnOls`, and a new `switch_type`, `ot
 Before vendors adopt real optical devices using the sonic-otn NOS, a sonic-otn device simulator is developed for feature development and testing. It serves as a vendor-neutral platform for collaboration on sonic-otn as an open source project.
 
 - A new platform is created for [otn-kvm](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/platform/otn-kvm) that includes all platform-specific artifacts (config, build rules, and SAI driver code).
-- A [new OTN device](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/device/virtual/x86_64-otn-kvm_x86_64-r0) belonging to otn-kvm is also created for device-specific artifacts. More virtual OTN devices can be added for the otn-kvm platform.
+- A [new OTN device](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/device/molex/x86_64-otn-kvm_x86_64-r0) belonging to otn-kvm is also created for device-specific artifacts. More virtual OTN devices can be added for the otn-kvm platform.
 - An open source SAI driver simulator is in a [separate repository](https://github.com/sonic-otn/sonic-otn-libs/tree/main). The simulator's Debian package will be released via the GitHub release mechanism. An example is [here](https://github.com/sonic-otn/sonic-otn-libs/releases/tag/v1.1.0). This follows the same practice that all SONiC SAI drivers from different vendors are not part of the SONiC codebase. At build time, the target platform's SAI driver as a Debian package will be pulled into the SONiC image.
 
-### 7.3 SWSS Extension For OTN Optical Features
+### 8.2 SWSS Extension For OTN Optical Features
 
 Two SONiC built-in containers, SWSS and Syncd, are at the core of data-path control and monitoring, as shown in the following diagram:
 
@@ -297,17 +372,31 @@ Two SONiC built-in containers, SWSS and Syncd, are at the core of data-path cont
 
 This section describes how SWSS and Syncd support OTN features.
 
-#### 7.3.1 SWSS Config Manager
+#### 8.2.1 SWSS Config Manager
 
-In the SWSS container, a new config manager daemon, [otnmgrd](https://github.com/sonic-otn/sonic-swss/blob/otn-dev/cfgmgr/otnmgrd.cpp), is created to subscribe to changes in OTN tables in Config DB. When a config change is notified, the OTN config manager updates the corresponding tables in APP DB.
+In the SWSS container, a new config manager daemon, `[otnmgrd](https://github.com/sonic-otn/sonic-swss/blob/otn-dev/cfgmgr/otnmgrd.cpp)`, is created to subscribe to changes in OTN tables in Config DB. When a config change is notified, the OTN config manager updates the corresponding tables in APP DB.
 
-#### 7.3.2 SWSS Orchagent
+#### 8.2.2 SWSS Orchagent
 
 Orchagent is extended with a [separate folder](https://github.com/sonic-otn/sonic-swss/tree/otn-dev/orchagent/otn) to support OTN devices.
 
 ***Switch Object and SAI initialization***
 
-Since `switch` is the root object for all other SAI objects, it must be created during SAI initialization. Also `router-if` object is mandatory SAI object in SONiC. Therefore, In OTN libsai these two object APIs need to be implemented as stub. With these two APIs implemented, the existing SAI initialization `initSAIApi()` in [main.cpp](https://github.com/sonic-net/sonic-swss/blob/master/orchagent/main.cpp) can be called as is for OTN devices.
+`switch` is the root object for all other SAI objects and must be created during initialization. Orchagent initializes SAI objects based on switch type. SAI initialization is split by switch type: OTN uses the OTN API, while everything else uses the standard SAI API:
+
+- OTN: initOtnApi().
+- Non-OTN: existing initSaiApi().
+
+```c++
+main.cpp
+
+    if (gMySwitchType == "otn") {
+        SWSS_LOG_NOTICE("OTN platform detected, initializing OTN API");
+        initOtnApi();
+    } else {
+        initSaiApi();
+    }
+```
 
 ***OrchDaemon for OTN***
 
@@ -330,7 +419,7 @@ Currently, SONiC supports two types of orch daemons based on `switchType`: `orch
 
 Creating a new type of OrchDaemon isolates OTN support from the existing logic, resulting in no impact on existing packet features.
 
-#### 7.3.3 Orchagent Superclass for OTN Objects
+#### 8.2.3 Orchagent Superclass (***Common Code Optimization***)
 
 Orchagent performs CRUD operations on SAI objects triggered by APP DB changes. Currently, each SONiC object has its own Orchagent class, which hard-codes APP DB Redis string object-to-SAI attribute mapping in a static table.
 Example here in [portsorch.cpp](https://github.com/sonic-net/sonic-swss/blob/master/orchagent/portsorch.cpp).
@@ -349,7 +438,7 @@ static map<string, sai_bridge_port_fdb_learning_mode_t> learn_mode_map =
 
 For OTN devices, a generic superclass, [objectorch](https://github.com/sonic-otn/sonic-swss/blob/otn-dev/orchagent/otn/objectorch.cpp), is defined to support CRUD operations and FlexCounter DB integration. Orchagent classes corresponding to each SAI object can reuse generic methods in `objectorch` for State DB and FlexCounter DB access.
 
-The following `translateObjectAttr(field, value, attr)` resolves the attribute ID from the hard coded maps above, normalizes enums and precision-based numbers, and then uses `sai_deserialize_attr_value` with attribute metadata.
+The following `translateObjectAttr(field, value, attr)` resolves the attribute ID from the maps above, normalizes enums and precision-based numbers, and then uses `sai_deserialize_attr_value` with attribute metadata.
 
 ```c++
 objectorch.cpp
@@ -389,22 +478,21 @@ flowchart LR
     style META fill:#bbdefb,stroke:#1565c0,color:#0d47a1
 ```
 
-**Summary (to be proposed to SONiC community)**
+Summary (to be proposed to SONiC community):
 
-- An Orchagent superclass (`ObjectOrch`) is created for generic translation from Redis strings to SAI attributes using SAI metadata, instead of using hard-coded mapping table in each class.
+- An Orchagent superclass (`ObjectOrch`) is created for generic translation from Redis strings to SAI attributes using SAI metadata, instead of hard-coded mapping tables.
 - All Orchagent classes should inherit from `ObjectOrch` and override functions when needed.
 
-
-### 7.4 OTN State DB Update
+### 8.3 OTN State DB Update
 
 This section describes how to support OTN state updates in State DB. Tables in State DB need to be updated continuously so that NBI (CLI/REST API) can read OTN object state—both discrete values (on/off and enabled/disabled, etc.) and gauged values (gain, attenuation and optical power, etc.)—from State DB directly via OpenConfig YANG models. State changes can also be notified via gNMI subscription mechanism.
 
-#### 7.4.1 SONiC SWSS Redis Plug In Script
+#### 8.3.1 SONiC SWSS Redis Plug In Script
 
 SWSS utilizes Lua scripts for certain operations, particularly within its Producer/Consumer Table framework. These scripts help in atomically writing and reading messages to and from Redis databases.
 Examples of Lua scripts in SWSS can be found in the sonic-swss repository. One notable example is [pfc_restore.lua](https://github.com/sonic-net/sonic-swss/blob/master/orchagent/pfc_restore.lua), which uses Redis commands to handle PFC (Priority Flow Control) restoration.
 
-#### 7.4.2 State DB Update
+#### 8.3.2 State DB Update
 
 It is proposed to use SWSS Lua scripts to support State DB updates for a device's real-time status changes. This approach has the following benefits:
 
@@ -417,13 +505,11 @@ The following diagram shows the workflow of the Redis plug-in script in SONiC.
 
 <img src="./images/redis-pluggin-script.png" alt="redis plug-in script workflow" style="zoom: 75%;" />
 
-Redis plug-in script workflow
-
-- Orchagent installs the script and stores its SHA.
+- First, Orchagent installs the script and stores its SHA.
 - When Syncd adds the counter attribute, it also adds the plug-in SHA.
 - When vendor SAI updates counters, it also sends a request to Redis DB to run the script.
 
-#### 7.4.3 Device Specific Lua Scripts (***Common Code Optimization***)
+#### 8.3.3 Device Specific Lua Scripts (***Common Code Optimization***)
 
 Currently, some vendor-specific Lua scripts are placed in the SWSS [orchagent](https://github.com/sonic-net/sonic-swss/blob/master/orchagent), which is not ideal:
 
@@ -463,54 +549,140 @@ Summary:
 - Device/vendor Lua scripts should be removed from SWSS common code.
 - Device/vendor Lua scripts should be part of device configuration.
 
-### 7.5 Syncd Extension
+### 8.4 Syncd Extension
 
 In the Syncd container, SONiC starts the Syncd service at startup, which loads the SAI component (driver) present in the system. This component is provided by various vendors, who implement the SAI interfaces based on their hardware platforms, allowing SONiC to use a unified upper-layer logic to control various hardware platforms. Syncd is responsible for communicating with the Redis database, loading SAI implementation, and interacting with it to handle ASIC initialization, configuration, status reporting, and so on.
 
 For OTN devices, Syncd behavior is similar. However, instead of managing an ASIC, each vendor implements SAI OTN extension APIs to control and monitor OTN objects. Notification handlers are also registered to process events from hardware. OTN support is added by extending logic to process new SAI APIs for OTN objects.
 
-#### 7.5.1 Serializer Extension
+#### 8.4.1 FlexCounter Extension
 
-New serialize/deserialize function for OTN SAI attributes are added in sai_serialize.h and SaiSerialize.cpp:
+When a SAI object is created, the corresponding FlexCounter is set up to collect object status in Counter DB. For better code maintainability, instead of modifying the existing [FlexCounter](https://github.com/sonic-net/sonic-sairedis/blob/master/syncd/FlexCounter.cpp), a new file, `[FlexCounterOtn.cpp](https://github.com/sonic-otn/sonic-sairedis/blob/otn-dev/syncd/FlexCounterOtn.cpp)`, is created for OTN support to isolate code maintenance.
 
-```c++
-// serialize OTN
-std::string sai_serialize_otn_attenuator_attr(_In_ const sai_otn_attenuator_attr_t attr);
+`FlexCounter` manages Counter DB configuration for SAI object monitoring. Separate `FlexCounterOtn` files are created for managing OTN SAI object attributes in Counter DB. This reduces code-change contention between the OTN project and the rest of SONiC development.
 
-std::string sai_serialize_otn_oa_attr(_In_ const sai_otn_oa_attr_t attr);
-
-// deserialize OTN
-void sai_deserialize_otn_attenuator_attr(
-        _In_ const std::string& s,
-        _Out_ sai_otn_attenuator_attr_t& attr);
-
-void sai_deserialize_otn_oa_attr(
-        _In_ const std::string& s,
-        _Out_ sai_otn_oa_attr_t& attr);
+```Diff
+   --- syncd
+    |--- FlexCounter.(h|cpp)
++   |--- FlexCounterOtn.(h|cpp)
 ```
 
-#### 7.5.2 FlexCounter Extension
+Similarly, SAI Object (de)serialization is also implemented in separate files `meta/sai_serialize_otn` from the main file `sai-serialize`.
 
-When a SAI object is created, the corresponding FlexCounter is set up to collect object status in Counter DB. For OTN support, we can simply add entries for new OTN counters.
+***Runtime logical flow isolation***
 
-```c++
-static const std::unordered_map<std::string, bool> statusMap =
-{
-    static const std::string ATTR_TYPE_OTN_ATTENUATOR_ATTR = "OTN Attenuator Attributes";
-    static const std::string ATTR_TYPE_OTN_OA_ATTR = "OTN OA Attributes";
-    .....
-    {WRED_PORT_PLUGIN_FIELD, COUNTER_TYPE_WRED_ECN_PORT}};
-    {WRED_PORT_PLUGIN_FIELD, COUNTER_TYPE_WRED_ECN_PORT},
-    {OTN_ATTENUATOR_PLUGIN_FIELD, ATTR_TYPE_OTN_ATTENUATOR_ATTR},
-    {OTN_OA_PLUGIN_FIELD, ATTR_TYPE_OTN_OA_ATTR},
-};
+Processing for OTN SAI objects and APIs is added to existing Syncd infrastructure with clear isolation from existing logic. This is done by placing OTN object processing at the end of current logic, so OTN logic is not in packet-switch code paths. The code snippet for adding the OTN counter plugin is shown below (similar for add/remove counters):
+
+```Diff
+FlexCounter.cpp
+
+void FlexCounter::addCounterPlugin {
+    ....
+    {
+            else
+            {
++               if (m_flexCounterOtn ->addCounterPlugin(field, shaStrings))
++               {
++                    continue;
++               }
+
+                SWSS_LOG_ERROR("Field is not supported %s", field.c_str());
+            }
+    }
+
+    // notify thread to start polling
+    notifyPoll();
+}
 ```
 
-### 7.6 PMON
+#### 8.4.2 OTN Gauged Value Modeling
+
+Many OTN objects include floating-point values (e.g., optical power, attenuation, Pre-FEC BER). These values require different levels of precision — optical power may need two decimal places, while Pre-FEC BER may require up to 18. All NBI-facing DBs (Config DB, State DB, Event DB, etc.) should store the gauged value in decimal format.
+
+Currently, SAI supports only `int64_t` statistics, without float/decimal type support. To support float without breaking compatibility, we propose introducing the `@precision` tag, allowing attributes and statistics to specify required precision. Here are examples:
+
+***SAI @precision [0-18] tag***
+
+```c
+    /**
+     * @brief The actual attenuation applied by the attenuator in units of 0.01dB.
+     *
+     * @type sai_int32_t
+     * @flags READ_ONLY
+     * @precision 2
+     */
+    SAI_OTN_ATTENUATOR_ATTR_ACTUAL_ATTENUATION,
+```
+
+In the SAI metadata, the `valueprecision` field in `attrInfo` is used to represent the precision. Code for double to int conversion:
+
+```c
+objectorch.cpp
+  // Save precision value for each attribute if precision is valid.
+  if (attr->valueprecision > 0) {
+      m_attrPrecisions[name] = attr->valueprecision;
+      m_attrPrecisions[hyphen_name] = attr->valueprecision;
+  }
+
+  /* Convert float string to int string according to the precision */
+  try
+  {
+      double float_value = std::stod(value);
+      size_t precision = m_attrPrecisions[field];
+      int64_t int_value = static_cast<int64_t>(float_value * (std::pow(10, precision)));
+      newValue = std::to_string(int_value);
+  }
+```
+
+***Store read-only gauged value in State DB or Counter DB***
+
+Another design issue is whether to model real-time gauged values in SAI `stat_t` or SAI `attr_t`:
+
+```c
+
+// 1. Realtime gauged value using attr_t
+
+  typedef enum _sai_attenuator_attr_t {
+    /**
+ * @brief The actual attenuation applied by the attenuator
+ * in units of 0.01dB.
+ *
+ * @type sai_int32_t
+ *
+ * @flags READ_ONLY
+ *
+ * @precision 2
+ */
+       SAI_OTN_ATTENUATOR_ATTR_ACTUAL_ATTENUATION
+     }
+
+  // 2. Realtime gauged value using stat_t
+  typedef enum _sai_attenuator_stat_t {
+    /**
+ * @brief The actual attenuation applied by the attenuator
+ * in units of 0.01dB.
+ *
+ * @type sai_int32_t
+ *
+ * @flags READ_ONLY
+ *
+ * @precision 2
+ */
+       SAI_OTN_ATTENUATOR_STAT_ACTUAL_ATTENUATION
+  }
+```
+
+Based on the following analysis, defining read-only gauged values in `enum_xx_attr_t` seems preferable:
+
+- `stat_t` in current SONiC is all counters (enum), not tagged attributes. Supporting tagged attributes in `stat_t` would require looping through all tags in `SAI/meta/parse.pl`. This introduces major changes and duplicated handling for `stat_t` and `attr_t`.
+- Using attr_t for gauged value requires no change to existing SAI parse infrastructure.
+- Read-only SAI attributes can be stored in State DB, which is updated by a registered Lua script with a device-specific interval (1 s).
+
+### 8.5 PMON
 
 SONiC PMON (platform monitor) manages generic hardware independent of device function. PMON infrastructure is implemented in two repositories, [sonic-platform-common](https://github.com/sonic-net/sonic-platform-common) and [sonic-platform-daemon](https://github.com/sonic-net/sonic-platform-daemons), described in [this doc](https://github.com/sonic-net/SONiC/blob/master/doc/platform_api/new_platform_api.md). Vendor platform modules reside under `sonic-buildimage/platform` for each device type.
 
-#### 7.6.1 PMON Base Class
+#### 8.5.1 PMON Base Class
 
 Python classes are implemented to model the generic hardware structure and operations on the hardware. Here is the example of a typical device structure in python classes:
 
@@ -530,9 +702,7 @@ Python classes are implemented to model the generic hardware structure and opera
       - description
       - firmware
 
-
-
-#### 7.6.2 Device Specific Platform Config And Driver
+#### 8.5.2 Device Specific Platform Config And Driver
 
 The JSON file [code here](https://github.com/sonic-otn/sonic-buildimage/blob/otn-dev/device/molex/x86_64-otn-kvm_x86_64-r0/platform.json) defines the OTN device HW hierarchy described above. This config file is device-specific for a particular OTN device, as shown in the following diagram:
 
@@ -563,9 +733,11 @@ flowchart LR
   PATH3 -.-> SUB
 ```
 
-An implementation of device specific PMON driver is [here](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/platform/otn-kvm/sonic-platform-modules-otn-kvm/ols-v).
 
-#### 7.6.3 Linecard Hot Pluggable (***Feature Enhancement***)
+
+An implementation of the PMON driver is [here](https://github.com/sonic-otn/sonic-buildimage/tree/otn-dev/platform/otn-kvm/sonic-platform-modules-otn-kvm/ols-v). The driver simulator is [here](https://github.com/sonic-otn/sonic-otn-libs).
+
+#### 8.5.3 Linecard Hot Pluggable (***Feature Enhancement***)
 
 Currently, SONiC supports two chassis types:
 
@@ -602,7 +774,7 @@ flowchart TB
     HW[HW Linux kernel]
     subgraph COL[" "]
       direction TB
-      subgraph SYNCFAM["XXXXsyncd"]
+      subgraph SYNCFAM["*syncd"]
         SDS["portsyncd · teamsyncd · fpmsyncd · intfsyncd · lldpsyncd"]
       end
       subgraph PMON[PMON]
@@ -640,9 +812,11 @@ flowchart TB
   linkStyle 4 stroke:#c00,stroke-width:2.5px
 ```
 
-These `XXXXsyncd` daemons may run in the SWSS container or in other application containers.
 
-As shown in the flowchart below, new line card sync logic is added to `chassisd` in the PMON container.
+
+These `*syncd` daemons may run in the SWSS container or in other application containers.
+
+As shown in the flowchart above, new line card sync logic is added to `chassisd` in the PMON container.
 
 The following diagrams show the steps for handling line card insertion or remove/fail events. Note that `linecardsyncd` is implemented as a Python library for each device. The **red** path is **remove only**. The **green** path is when the line card is online (insert / recover).
 
@@ -675,12 +849,7 @@ sequenceDiagram
     SD->>ST: remove State DB objects
 ```
 
-- `chassisd` in PMON detects a removed line card by polling.
-- It changes the line card status from online to `empty/fault`.
-- The linecardsyncd API (implemented at device level) removes all the optical components on the line card.
-- Orchagent is triggered to remove corresponding SAI objects and associated FlexCounter entries.
-- Syncd stops monitoring removed resources for these optical modules.
-- Objects in State DB should also be removed. NBI queries for these components should return empty results.
+
 
 **Line card online (insert / recover)**
 
@@ -714,19 +883,30 @@ sequenceDiagram
     SD->>ST: update State DB objects
 ```
 
-- PMON detects that a line card is back online (LC communication is OK).
+***Line card unplug / failed***
+
+- `chassisd` in PMON detects a removed line card by polling.
+- It changes the line card status from online to `empty/fault`.
+- The linecardsyncd API (implemented at device level) removes all the optical components on the line card.
+- Orchagent is triggered to remove corresponding SAI objects and associated FlexCounter entries.
+- Syncd stops monitoring removed resources for these optical modules.
+- Objects in State DB should also be removed. NBI queries for these components should return empty results.
+
+***Line card insert/recover***
+
+- PMON detects that a line card is back online (LC communication is OK). 
 - It changes the line card status back to online.
 - `linecardsyncd` APIs add optical components for the line card by restoring configuration from Config DB.
 - Orchagent is triggered to create corresponding SAI objects and associated FlexCounter entries.
 - Syncd starts monitoring the resources. State DB should also be updated with current component state.
 
-#### 7.6.4 Firmware Upgrade
+#### 8.5.4 Firmware Upgrade
 
 SONiC provides a generic mechanism to install/upgrade firmware, [fwutil.md](https://github.com/sonic-net/SONiC/blob/master/doc/fwutil/fwutil.md).
 
 OTN vendors need to implement the Python component APIs defined in the base class `[component_base.py](https://github.com/sonic-net/sonic-platform-common/blob/master/sonic_platform_base/component_base.py)`:
 
-### 7.7 SONiC Host Containers
+### 8.6 SONiC Host Containers
 
 The following containers shall be enabled in SONiC and included in the image. Switch-specific containers shall be disabled for images built for OTN devices. The SONiC build [rule/config](https://github.com/sonic-net/sonic-buildimage/blob/master/rules/config) must be updated accordingly.
 
@@ -751,19 +931,15 @@ The following containers shall be enabled in SONiC and included in the image. Sw
 | gNMI                   | Yes         |
 
 
-## 8 SAI API
-
-The SAI extension for OTN devices is proposed and merged [here](./sai_otn_proposal.md).
-
-## 9 Configuration And Management
+## 9. Device Configuration And Management
 
 This section contains subsections for all configuration and management-related design topics. Subsections for CLI and Config DB are included below, along with subsections for data models (YANG, REST, gNMI, etc.).
 
-### 9.1 Manifest
+### 9.1. Manifest (If The Feature Is An Application Extension)
 
-N/A — OTN support is implemented as built-in SONiC enhancements rather than a SONiC Application Extension, so no application-extension manifest is required.
+N/A
 
-### 9.2 CLI/YANG Model Enhancements
+### 9.2. OTN YANG Model
 
 #### 9.2.1 OpenConfig Optical Transport YANG Model
 
@@ -807,11 +983,11 @@ goyang --format=annotate --path=/path/to/yang/models openconfig-optical-attenuat
 
 See this [developer guide](https://github.com/project-arlo/sonic-mgmt-framework/wiki/Transformer-Developer-Guide) for details.
 
-#### 9.2.3 RESTCONF
+#### 9.2.3 REST
 
 After the translation and mapping are implemented, the SONiC management framework supports the REST API accordingly. The REST API specification can be auto-generated using the [OpenAPI tool](https://github.com/OpenAPITools/openapi-generator).
 
-OTN RESTCONF request examples:
+OTN REST request examples:
 
 ```bash
 ## Get All Amplifiers
@@ -819,7 +995,7 @@ curl -k -X GET\
    "https://127.0.0.1/restconf/data/openconfig-optical-amplifier:optical-amplifier/amplifiers" \
    -H "accept: application/yang-data+json" | jq
 
-## Get One VOA Object
+# Get One VOA Object
 curl -k -X GET \
    "https://127.0.0.1/restconf/data/openconfig-optical-attenuator:optical-attenuator/attenuators/attenuator=VOA0-0" \
    -H "accept: application/yang-data+json" | jq
@@ -934,12 +1110,52 @@ gnmic   --address 127.0.0.1:8080   --username admin   --password YourPaSsWoRd   
 
 ```
 
-As a guideline,
+As a guideline, 
 
 - For continuously changing optical analog values (power, attenuation, gain, etc.), sampling with an interval (e.g. 5 seconds) should be used.
 - For more static status (up/down, enabled/disabled, alarms, and events), on-change mode should be used.
 
-#### 9.2.5 CLI Auto Generation For OTN
+***gNMI Performance Analysis***
+A high-performance system is measured in two aspects:
+
+- Response time, for example, 100 ms for all OCM get requests, 100 ms to set all WSS channels' attenuation, etc.
+- Data freshness: Counter DB is updated by the Syncd thread periodically and a Lua script then updates State DB accordingly. Therefore, data freshness in State DB depends on the Syncd thread's polling interval, currently 1 second.
+- Reasonable resource usage (CPU/RAM)
+
+When the management framework receives a gNMI subscription request, the framework subscribes to changes in the corresponding Redis DB tables, based on the subscription YANG path. 
+
+```mermaid
+sequenceDiagram
+    participant HW as HW
+    participant SYNC as Syncd
+    participant DB as stateDB (ATTENUATOR_TABLE)
+    participant GNMI as gNMI Server
+    participant CLIENT as Data Stream Client
+
+    loop every 1s
+        HW->>SYNC: Read/update optical values
+        SYNC->>DB: Write ATTENUATOR_TABLE
+    end
+
+    alt On-change subscription (>= 1s)
+        DB-->>GNMI: Table update notification
+        GNMI-->>CLIENT: Push changed values
+    else Sampling subscription (5s)
+        GNMI->>DB: Poll latest values (every 5s)
+        DB-->>GNMI: Current ATTENUATOR_TABLE snapshot
+        GNMI-->>CLIENT: Push sampled data
+    end
+```
+
+As shown in the diagram above:
+
+- With a wildcard key in the path for gNMI subscription, both on-change and sampled attributes can be stored in the same DB table.
+- The Syncd thread polling interval should be finer than the gNMI telemetry interval so that STATE_DB is refreshed more frequently than the telemetry sampling interval and stale data is avoided (for example, Syncd polling at 1 s and gNMI sampling at 5 s).
+- SONiC Redis DB subscriptions appear to be table-granular; the gNMI server may therefore be notified of changes about every 1 s.
+
+Performance benchmark tests will be run when a fully functional KVM ILA device (OA, VOA, OCM, WSS/DEG, with 4 line cards) is completed.
+
+#### 9.2.5 CLI Auto Generation For OTN (***Feature Enhancement***)
 
 Most SONiC CLI is implemented in sonic-utilities based on the [Python click library](https://click.palletsprojects.com/en/8.1.x/). These CLIs are supported in [sonic-utilities](https://github.com/sonic-net/sonic-utilities). It is preferred that OTN CLI supports auto-generation instead of hard-coded Python for better maintenance and consistency.
 
@@ -1003,19 +1219,18 @@ Here is the workflow:
   - Packages generated SONiC YANG files into /usr/share/sonic/device-yang/{platform}/.
 - At SONiC startup:
   - sonic-yanggen.service runs on startup.
-  - Executes yang_auto_cli.sh to register CLI commands. The script only processes files specifically for this `ONIE platform` (ex. x86_64-otn-kvm_x86_64-r0).
+  - Executes yang_auto_cli.sh to register CLI commands. The script only processes files specifically for this `ONIE platform` (ex. x86_64-otn-kvm_x86_64-r0). 
   - As a result, the CLI applicable for that device is generated and available to use.
 
-Note that yang_auto_cli.sh only supports generating CLI for Config DB; [an enhancement PR](https://github.com/sonic-net/sonic-utilities/pull/3222) is submitted to support CLI access to State DB.
+Note that yang_auto_cli.sh only supports generating CLI for Config DB; [an enhancement PR](https://github.com/sonic-net/sonic-utilities/pull/3222) is submitted to support CLI access to State DB. 
+
+##### Make It A SONiC Feature (***TBD***)
 
 sonic-yanggen is a package that can be used for all devices including packet switches. This package is currently inside of platform/otn/kvm and can be moved to sonic-utilities as a SONiC general package.
 
-***Vertical and unit display support***
+***Vertical display support***
 
 Existing sonic-cli-gen displays a Redis table in which each object is in a horizontal format, i.e., a row. This causes an issue when an object has many entries and the data beyond the screen width is truncated. To fix that issue, a vertical option is added for sonic-cli-gen, so that each object will be displayed vertically to show all the attributes. See the following screenshot for the original sonic (horizontal) and improved vertical format. See [this commit](https://github.com/sonic-molex/sonic-utilities/commit/97b19431490e5ca8f151cac7a85ffe6ffba97c99).
-
-***Add units***
-Sonic Ynag has no units, so he Units will be extracted from openconfig yang models.
 
 ```bash
 root@sonic:~# show otn-oa-table
@@ -1078,7 +1293,159 @@ Name ila-west-to-east-amp
    Optical return loss : 14.64dB
 ```
 
-#### 9.2.6 CLI Filtering Mechanism
+### 9.3 NBI Configuration Validation
+
+#### 9.3.1 Issue Related To The SONiC Async Configuration
+
+Currently, the SONiC management-framework CVL validates Northbound configuration against the Redis-oriented schema expressed in SONiC YANG, so much of the config written into Redis is checked against those constraints.
+
+This is not enough for some use cases:
+
+- Beyond syntax correctness, configuration can still lack optical-domain business logic checks. For example, if a user sets gain outside the allowed range between min-gain and max-gain, the value may still be stored in Config DB. The OA orchagent or SAI driver may reject it eventually, but it is already present in Config DB, as shown in the following diagram.
+
+```mermaid
+sequenceDiagram
+    participant CLI as CLI/REST/gNMI
+    participant ConfigDB as Config DB
+    participant AppDB as APP DB
+    participant orch as Orchagent
+    participant sd as Syncd
+    participant Vendor as Vendor driver
+    participant StateDB as State DB
+
+    CLI->>ConfigDB: Set (Async)
+    ConfigDB->>AppDB: Sync (config mgr)
+    AppDB->>orch: sub
+    Note over orch: Error
+    orch->>sd: update
+    sd->>Vendor: SAI Set
+    Note over Vendor: Error
+    critical Error from driver
+        Vendor-->>sd: Error
+    end
+    sd->>StateDB: update
+    StateDB-->>CLI: status
+```
+
+
+
+Therefore, it is required that all config data from NBI is fully validated in the NBI front-end (management-framework container) to make sure the config data compiles both syntaxes and also optical device business logic, before update the config DB:
+
+- The config data should be match the Config DB Redis schema. This is supported already in existing SONiC by management-frameworks's CVL feature. CVL validates the config data from NBI against corresponding [sonic yang](https://github.com/sonic-otn/sonic-mgmt-common/tree/otn-dev/models/yang/sonic).
+- Sometimes configuration data need to be validated in real-time to make sure it meets the condition of the device at that point of time. This dynamic validation mechanism is also supported by SONiC management framework and described in the next section.
+- Additionally, for OTN devices, many configuration parameters have different supported ranges per device type. For example, the valid gain-tilt and target-power etc. are different for different devices type. The device specific rang validation need to be supported. This mechanism is added into SONiC as a new feature described in below section as well.
+
+#### 9.3.2 Runtime Business Logic Validation
+
+SONiC (**sonic-mgmt-common**) supports custom validation of incoming configuration before it is written to Config DB at run time.
+
+- The `**sonic-ext:custom-validation`** extension is defined in [sonic-extension.yang](https://github.com/sonic-net/sonic-mgmt-common/blob/master/models/yang/sonic/common/sonic-extension.yang).
+
+```yang
+	extension custom-validation {
+		description
+			"Extension for custom validation. 
+			 Platform specific validation can be implemented using custom validation.";
+		argument "handler"; 
+	}
+```
+
+- Annotate the CVL SONiC YANG with a handler name. For example, in `sonic-mgmt-common/models/yang/sonic/sonic-optical-amplifier.yang`:
+
+```yang
+import sonic-extension { prefix sonic-ext; }   // must be in this file, not a deviation
+
+leaf target-gain {
+    type decimal64 { fraction-digits 2; }
+    sonic-ext:custom-validation "ValidateOtnGain";
+}
+```
+
+- In `sonic-mgmt-common/cvl/custom_validation`, add the handler implementation (`**ValidateOtnGain**`) with the following signature:
+
+```go
+func (t *CustomValidation) ValidateOtnGain(vc *CustValidationCtxt) CVLErrorInfo
+```
+
+CVL invokes this method so the **target-gain** value in the NBI (REST/gNMI) request can be checked against **min-gain** and **max-gain** (for example from Config DB or related state).
+
+#### 9.3.3 Device Specific Configuration Value Range Checks (***New Feature***)
+
+On an OTN device, some configuration parameters have ranges that depend on device type. CVL should validate submitted values against those device-specific ranges. For example, gain tilt might be supported in **[-2.0, 0.00]** on one device but differ on another.
+
+The approach is to add a configuration-validation YANG module that augments the default SONiC CVL YANG in the management-framework image, extending the original CVL model with additional range constraints.
+
+- Under the device folder `device/<vendor>/<platform>/cvl-yang`, add `sonic-<platform>-config-validation.yang`, for example:
+
+```c
+module sonic-otn-config-validation {
+    namespace "http://github.com/Azure/sonic-otn-config-validation";
+    prefix "sonic-otn-cv";
+
+    import sonic-optical-amplifier { prefix sopt-amp; }
+
+    revision "2026-04-29" {
+        description "Add range constraints to OTN optical amplifier leaves.";
+    }
+
+    deviation "/sopt-amp:sonic-optical-amplifier/sopt-amp:OTN_OA/sopt-amp:OTN_OA_LIST/sopt-amp:target-gain-tilt" {
+        deviate replace {
+            type decimal64 {
+                fraction-digits 2;
+                range "-2.00..0.00";
+            }
+        }
+    }
+}
+```
+
+- This yang extension will be build as part of a Debian package in the sonic image and the above yang will be used to generating corresponding yin file and as part of the CVL logic.
+- When a user changes the gain-tilt field, CVL ensures the value is within range; otherwise the request is rejected and Config DB is not updated.
+
+The diagram show the complete flow of build time and run time as following:
+
+```mermaid
+flowchart TB
+    subgraph Build["🔨 Build time · sonic-buildimage"]
+        direction TB
+        YANG["device vendor platform cvl-yang<br/>sonic-*-config-validation.yang"]
+        DEB["sonic-config-validation .deb<br/>cvl-gen-yin.sh · start.sh"]
+        DOCKER["docker-sonic-mgmt-framework<br/>depends on deb · Dockerfile COPY order"]
+        YANG --> DEB
+        DEB --> DOCKER
+    end
+
+    subgraph Start["📦 Container start · mgmt-framework"]
+        direction TB
+        SH["/usr/bin/start.sh"]
+        GEN["cvl-gen-yin.sh · pyang -f yin"]
+        PLAT["/usr/share/sonic/platform<br/>platform_asic file · cvl-yang/*.yang"]
+        MODELS["/usr/models/yang · import path"]
+        OUT["/usr/sbin/schema/platform/{platform_asic}/*.yin"]
+        SH --> GEN
+        PLAT --> GEN
+        MODELS --> GEN
+        GEN --> OUT
+    end
+
+    subgraph Runtime["⚡ Runtime · NBI write"]
+        direction TB
+        API["REST / gNMI request"]
+        CVL["CVL loads YIN + validates"]
+        OK["Value in device range"]
+        BAD["Reject · Config DB unchanged"]
+        API --> CVL
+        OUT -.->|schema on disk| CVL
+        CVL --> OK
+        CVL --> BAD
+    end
+
+    DOCKER --> SH
+```
+
+
+
+### 9.4 CLI Filtering Mechanism (***New Feature***)
 
 Currently, SONiC has two frameworks for CLI implementation:
 
@@ -1170,6 +1537,8 @@ graph LR
     Build --> Install --> Runtime
 ```
 
+
+
 ##### Configuration Example — `cli_unwanted.json`
 
 Located at `/usr/share/sonic/device/<platform>/cli_unwanted.json`. Example:
@@ -1198,20 +1567,18 @@ Located at `/usr/share/sonic/device/<platform>/cli_unwanted.json`. Example:
 - Top-level entries (`"vlan"`) hide the command directly under the root group.
 - Dotted entries (`"ip.bgp"`) hide a sub-command under a parent group — `ip bgp` is hidden while other `ip` sub-commands remain available.
 
-
-
 ##### Dependencies
 
 - `sonic-utilities-data` (provides the CLI framework and plugin directories)
 - `sonic_py_common` (for `device_info.get_platform()` at runtime)
 
-##### Make It A SONiC Feature
+##### Make It A SONiC Feature (***TBD***)
 
 The package is built as a Debian `.deb` and installed via `dpkg` on the OTN KVM platform today. It could be merged into **sonic-utilities** so that all devices, including packet switches, can use it.
 
-### 9.3 Config DB Enhancements
+### 9.5. Config And State DB Schema For OTN
 
-New Config DB and State DB tables are introduced to support OTN devices. The new DB tables are added in `[schema.h](https://github.com/sonic-otn/sonic-swss-common/blob/otn-dev/common/schema.h)` in `sonic-swss-common`.
+New Config DB and State DB tables are introduced to support OTN devices. The new DB tables are added in `[schema.h](https://github.com/sonic-otn/sonic-swss-common/blob/otn-dev/common/schema.h)` in `sonic-swss-common`. Potentially, OTN tables can be defined in a separate file (**TBD**).
 
 Config DB and State DB schemas are strictly mapped from OpenConfig YANG models. The following new DB tables are defined for optical amplifiers and variable optical attenuators as examples:
 
@@ -1299,163 +1666,13 @@ laser-bias-current  = float64
 optical-return-loss  = float64
 ```
 
-### 9.4 NBI Configuration Validation
+### 9.6 Event And Alarm Support
 
-#### 9.4.1 Issue Related To The SONiC Async Configuration
-
-Currently, the SONiC management-framework CVL validates Northbound configuration against the Redis-oriented schema expressed in SONiC YANG, so much of the config written into Redis is checked against those constraints.
-
-This is not enough for some use cases:
-
-- Beyond syntax correctness, configuration can still lack optical-domain business logic checks. For example, if a user sets gain outside the allowed range between min-gain and max-gain, the value may still be stored in Config DB. The OA orchagent or SAI driver may reject it eventually, but it is already present in Config DB, as shown in the following diagram.
-
-```mermaid
-sequenceDiagram
-    participant CLI as CLI/REST/gNMI
-    participant ConfigDB as Config DB
-    participant AppDB as APP DB
-    participant orch as Orchagent
-    participant sd as Syncd
-    participant Vendor as Vendor driver
-    participant StateDB as State DB
-
-    CLI->>ConfigDB: Set (Async)
-    ConfigDB->>AppDB: Sync (config mgr)
-    AppDB->>orch: sub
-    Note over orch: Error
-    orch->>sd: update
-    sd->>Vendor: SAI Set
-    Note over Vendor: Error
-    critical Error from driver
-        Vendor-->>sd: Error
-    end
-    sd->>StateDB: update
-    StateDB-->>CLI: status
-```
-
-
-
-Therefore, it is required that all config data from NBI is fully validated in the NBI front-end (management-framework container) to make sure the config data compiles both syntaxes and also optical device business logic, before update the config DB:
-
-- The config data should be match the Config DB Redis schema. This is supported already in existing SONiC by management-frameworks's CVL feature. CVL validates the config data from NBI against corresponding [sonic yang](https://github.com/sonic-otn/sonic-mgmt-common/tree/otn-dev/models/yang/sonic).
-- Sometimes configuration data need to be validated in real-time to make sure it meets the condition of the device at that point of time. This dynamic validation mechanism is also supported by SONiC management framework and described in the next section.
-- Additionally, for OTN devices, many configuration parameters have different supported ranges per device type. For example, the valid gain-tilt and target-power etc. are different for different devices type. The device specific rang validation need to be supported. This mechanism is added into SONiC as a new feature described in below section as well.
-
-#### 9.4.2 Runtime Business Logic Validation
-
-SONiC (**sonic-mgmt-common**) supports custom validation of incoming configuration before it is written to Config DB at run time.
-
-- The `**sonic-ext:custom-validation`** extension is defined in [sonic-extension.yang](https://github.com/sonic-net/sonic-mgmt-common/blob/master/models/yang/sonic/common/sonic-extension.yang).
-
-```yang
-	extension custom-validation {
-		description
-			"Extension for custom validation. 
-			 Platform specific validation can be implemented using custom validation.";
-		argument "handler"; 
-	}
-```
-
-- Annotate the CVL SONiC YANG with a handler name. For example, in `sonic-mgmt-common/models/yang/sonic/sonic-optical-amplifier.yang`:
-
-```yang
-import sonic-extension { prefix sonic-ext; }   // must be in this file, not a deviation
-
-leaf target-gain {
-    type decimal64 { fraction-digits 2; }
-    sonic-ext:custom-validation "ValidateOtnGain";
-}
-```
-
-- In `sonic-mgmt-common/cvl/custom_validation`, add the handler implementation (`**ValidateOtnGain**`) with the following signature:
-
-```go
-func (t *CustomValidation) ValidateOtnGain(vc *CustValidationCtxt) CVLErrorInfo
-```
-
-CVL invokes this method so the **target-gain** value in the NBI (REST/gNMI) request can be checked against **min-gain** and **max-gain** (for example from Config DB or related state).
-
-#### 9.4.3 Device Specific Configuration Value Range Checks (***New Feature***)
-
-On an OTN device, some configuration parameters have ranges that depend on device type. CVL should validate submitted values against those device-specific ranges. For example, gain tilt might be supported in **[-2.0, 0.00]** on one device but differ on another.
-
-The approach is to add a configuration-validation YANG module that augments the default SONiC CVL YANG in the management-framework image, extending the original CVL model with additional range constraints.
-
-- Under the device folder `device/<vendor>/<platform>/cvl-yang`, add `sonic-<platform>-config-validation.yang`, for example:
-
-```c
-module sonic-otn-config-validation {
-    namespace "http://github.com/Azure/sonic-otn-config-validation";
-    prefix "sonic-otn-cv";
-
-    import sonic-optical-amplifier { prefix sopt-amp; }
-
-    revision "2026-04-29" {
-        description "Add range constraints to OTN optical amplifier leaves.";
-    }
-
-    deviation "/sopt-amp:sonic-optical-amplifier/sopt-amp:OTN_OA/sopt-amp:OTN_OA_LIST/sopt-amp:target-gain-tilt" {
-        deviate replace {
-            type decimal64 {
-                fraction-digits 2;
-                range "-2.00..0.00";
-            }
-        }
-    }
-}
-```
-
-- This yang extension will be build as part of a Debian package in the sonic image and the above yang will be used to generating corresponding yin file and as part of the CVL logic.
-- When a user changes the gain-tilt field, CVL ensures the value is within range; otherwise the request is rejected and Config DB is not updated.
-
-The diagram show the complete flow of build time and run time as following:
-
-```mermaid
-flowchart TB
-    subgraph Build["🔨 Build time · sonic-buildimage"]
-        direction TB
-        YANG["device vendor platform cvl-yang<br/>sonic-*-config-validation.yang"]
-        DEB["sonic-config-validation .deb<br/>cvl-gen-yin.sh · start.sh"]
-        DOCKER["docker-sonic-mgmt-framework<br/>depends on deb · Dockerfile COPY order"]
-        YANG --> DEB
-        DEB --> DOCKER
-    end
-
-    subgraph Start["📦 Container start · mgmt-framework"]
-        direction TB
-        SH["/usr/bin/start.sh"]
-        GEN["cvl-gen-yin.sh · pyang -f yin"]
-        PLAT["/usr/share/sonic/platform<br/>platform_asic file · cvl-yang/*.yang"]
-        MODELS["/usr/models/yang · import path"]
-        OUT["/usr/sbin/schema/platform/{platform_asic}/*.yin"]
-        SH --> GEN
-        PLAT --> GEN
-        MODELS --> GEN
-        GEN --> OUT
-    end
-
-    subgraph Runtime["⚡ Runtime · NBI write"]
-        direction TB
-        API["REST / gNMI request"]
-        CVL["CVL loads YIN + validates"]
-        OK["Value in device range"]
-        BAD["Reject · Config DB unchanged"]
-        API --> CVL
-        OUT -.->|schema on disk| CVL
-        CVL --> OK
-        CVL --> BAD
-    end
-
-    DOCKER --> SH
-```
-
-### 9.5 Event And Alarm Support
-
-#### 9.5.1 SONiC Notification
+#### 9.6.1 SONiC Notification
 
 SONiC has a notification mechanism supporting notifications from Vendor SAI (driver) to SWSS. Currently the notification is only supported by the root SAI object (switch), in which all notification callback attributes and prototypes are defined in `saiswitch.h`. When the switch object is created during SWSS startup, all notification attributes are set with the corresponding callbacks in Orchagent (`main.cpp`). Notification callbacks are defined in `Notification.h|cpp` in Orchagent. When Syncd receives switch creation from Orchagent, it registers its own callbacks to the SAI vendor drivers. When an event is detected by Vendor SAI, the registered Syncd callback will be called with the driver data passed as function parameters. The Syncd callback sends a message via Redis to SWSS Orchagent, which calls the SWSS callback to handle the event.
 
-#### 9.5.2 Notification Extension For OTN
+#### 9.6.2 Notification Extension For OTN
 
 ***OTN Notification Extension***
 In order to separate OTN notification code from the existing switch code, a notification attribute for OTN is declared in SAI extension `saiswitchextensions.h`. 
@@ -1587,9 +1804,7 @@ sequenceDiagram
 
 
 
-
-
-#### 9.5.3 OTN Notification Definition And NBI
+#### 9.6.3 OTN Notification Definition And NBI
 
 ***Single Generic Notification for OTN***
 As mentioned earlier, SONiC only supports a notification mechanism at the root `switch` object. Therefore it is more efficient to introduce a single generic notification for the OTN device instead of adding many low-level notifications, each of which would require code changes along the existing code path. 
@@ -1629,7 +1844,9 @@ There are a few mechanisms to deliver events/alarms to the NBI:
 OTN currently reuses the existing [SONiC event alarm framework](https://github.com/sonic-net/SONiC/blob/master/doc/mgmt/Management%20Framework.md) as is. Note that the [code](https://github.com/sonic-net/sonic-buildimage/pull/22617) has not been merged yet. [Other work](https://github.com/sonic-net/sonic-platform-daemons/pull/421) is ongoing on fault management on top of the event alarm framework.
 
 Upon receiving an event from Syncd, SWSS can notify the event/alarm by
-writing the event to Event DB directly using event alarm framework APIs.
+
+- Writing the event into syslog. Using the event alarm framework syslog plugin mechanism, each OTN device can specify which syslog events should be written to the Event DB. Example [here](https://github.com/sonic-molex/sonic-buildimage/blob/otn-dev/device/molex/x86_64-otn-kvm_x86_64-r0/default.json)
+- SWSS OTN notification handler can also write the event to Event DB directly using event alarm framework APIs.
 
 The following sequence diagram shows OTN alarm/event flow from vendor SAI through Orchagent, syslog (SWSS) / rsyslog (host), eventd (eventd-ocs) with default.json (device-specific) mapping, external eventdb (e.g. Redis), to gNMI. Configuration files (`platform.conf`, `platform-regex.json`) are COPY-deployed from the eventd container to the host.
 
@@ -1637,18 +1854,25 @@ The following sequence diagram shows OTN alarm/event flow from vendor SAI throug
 sequenceDiagram
     participant vsai as vendor SAI
     participant OA as Orchagent
+    participant syslog_sw as syslog (SWSS)
+    participant rsyslog_host as rsyslog (host)
     participant eventd as eventd
     participant dc as default.json<br/>(device-specific)
     participant edbe as eventdb (Redis)
     participant gnmi as gNMI<br/>syslog server
     dc->>eventd: map
+    eventd->>rsyslog_host: COPY syslog-plugin to host
     vsai->>OA: alarm / event
-    OA->>eventd: deliver
+    OA->>syslog_sw: syslog message
+    syslog_sw->>rsyslog_host: forward
+    rsyslog_host->>eventd: deliver
     eventd->>edbe: persist
     edbe->>gnmi: notification
 ```
 
-### 9.6 OTN PM Statistics Support (***New Feature***)
+
+
+### 9.7 OTN PM Statistics Support (***New Feature***)
 
 This section describes how to support OTN PM statistics counters.
 
@@ -1657,23 +1881,23 @@ Current SONiC does not support traditional telecom performance management (PM) h
 - 96 (32) buckets of 15-minute counters including min, max and average.
 - 7 buckets of 24-hour counters with min, max and average.
 
-#### 9.6.1 PM Design Objective:
+#### 9.7.1 PM Design Objective:
 
 - This additional new feature should be modular and not coupled with the current SONiC logic and codebase.
 - It should be generic and support all vendors' devices.
 - Which PM parameters to collect should be configurable at device level so that each device can specify the PM counter set.
 
-
-
-#### 9.6.2 Design Proposal
+#### 9.7.2 Design Proposal
 
 The first design choice is where the PM mechanism should be hosted. It could be an independent container, or it can run inside the PMON container, which is used more for system monitoring.
 
 Secondly, PM is an application-level feature and should depend on existing data; the status data in State DB tables is an obvious choice.
 
-#### 9.6.3 YANG Model And Redis Schema
+#### 9.7.3 YANG Model And Redis Schema
 
 Since there is no standard OpenConfig YANG model for PM management, a new SONiC YANG module is defined for PM management.
+
+Please see [sonic-otn-pm.yang](https://github.com/sonic-molex/sonic-buildimage/blob/jimmy/src/sonic-yang-models/yang-models/sonic-otn-pm.yang) (TBD).
 
 The corresponding Redis schema is shown below:
 
@@ -1741,11 +1965,11 @@ sequenceDiagram
     pm->>store: Persist PM data
 ```
 
-### 9.7 Reuse SONiC Existing Features
+### 9.8 Reuse SONiC Existing Features
 
 SONiC is a mature NOS, which provides most system management features. These features can be used for OTN devices as-is without any changes.
 
-#### 9.7.1 Management And Loopback Interface
+#### 9.8.1 Management And Loopback Interface
 
 OTN devices support at least one DCN interface for device management (NBI).
 
@@ -1764,63 +1988,41 @@ admin@OTN001:~$ config interface ip add eth0 <ip_addr> <default gateway IP>
 
 Additionally, the management interfaces should support L3 routing protocols, OSPF, and BGP.
 
-#### 9.7.2 TACACS+ AAA
+#### 9.8.2 TACACS+ AAA
 
 Please see [here](https://github.com/sonic-net/SONiC/blob/master/doc/aaa/TACACS%2B%20Authentication.md).
 
-#### 9.7.3 Syslog
+#### 9.8.3 Syslog
 
 Please see [here](https://github.com/sonic-net/SONiC/blob/master/doc/syslog/syslog-design.md).
 
-#### 9.7.4 NTP
+#### 9.8.4 NTP
 
 Please see [here](https://github.com/sonic-net/SONiC/blob/master/doc/ntp/ntp-design.md).
 
-#### 9.7.5 SONiC Upgrade
+#### 9.8.5 SONiC Upgrade
 
 Please see [here](https://github.com/sonic-net/SONiC/wiki/SONiC-to-SONiC-update).
 
-## 10 Warmboot And Fastboot Design Impact
+## 10. Warmboot And Fastboot Design Impact
 
 OTN support does not depend on or affect current SONiC warmboot and fastboot behavior. Warm reboot should remain a non-service-affecting (NSA) operation.
 
-The extended OTN logic is active only for OTN platforms (such as `otn-kvm`); it does not run — at either build time or run time — for existing packet-switch platforms. All of these extra OTN features are implemented within `platform/otn-XXX` and their associated OTN devices, so a switch platform build neither compiles nor exercises the OTN code paths. As a result, there is no impact on existing packet-switch platforms.
-
-### Warmboot And Fastboot Performance Impact
-
-OTN enhancements are designed to keep control-plane and data-plane downtime unchanged from stock SONiC. All of the points below apply only to OTN platforms (such as `otn-kvm`); on existing packet-switch platforms none of this OTN code is built or run, so there is no boot-time impact:
-
-- **Boot critical chain:** On OTN platforms, OTN does not add stalls/sleeps/blocking IO to the warmboot/fastboot critical path. OTN-specific processing (Orchagent object CRUD, FlexCounterOtn polling, Lua state updates) runs after startup and does not gate the boot sequence. On packet-switch platforms, none of this code is built or exercised at all.
-- **CPU-heavy processing:** Build-time YANG-to-CLI generation (`sonic_yanggen.py`) and CVL YIN generation run only for OTN platform builds, at build/container-start time, not in the reboot critical path. No additional heavy Jinja rendering is introduced on the boot path, and nothing is added to packet-switch builds.
-- **Third-party dependencies:** The vendor SAI OTN driver Debian package is pulled at build time only for OTN platforms and does not affect boot-time performance beyond normal Syncd/SAI initialization. Packet-switch platform builds do not pull it.
-- **Delayability:** The optical-control and PM (`sonic-pm`) functions are application-level, run only on OTN platforms, and can be delayed/started after core bring-up without affecting warm/fast reboot timing.
-- **Optimizations:** On OTN platforms, since packet features are disabled, fewer Orchagent objects and containers are initialized, so the OTN image is not expected to degrade boot time relative to a packet-switch image.
-
-
-
-## 11 Memory Consumption
+## 11. Memory Consumption
 
 In an OTN device, most packet features are not enabled in SWSS (configMgr and Orchagent). Therefore, memory consumption is lower than in a packet switch.
 
-## 12 Restrictions/Limitations
+## 12. Restrictions/Limitations
 
 N/A
 
-## 13 Testing Requirements/Design
+## 13. Testing Requirements/Design (**TBD**)
 
+### 13.1. Unit Test Cases
 
+### 13.2. System Test Cases
 
-### 13.1 Unit Test Cases
-
-
-
-### 13.2 System Test Cases
-
-
-
-## 14 Open/Action Items
-
-
+## 14. Open/Action Items If Any
 
 ### 14.1 Threshold Management (**TBD**)
 
